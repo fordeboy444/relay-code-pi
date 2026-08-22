@@ -58,6 +58,17 @@
     "@llblab/pi-telegram": "^0.36.8",
     "@narumitw/pi-goal": "^0.52.3"
   },
+  "bundledDependencies": [
+    "pi-subagents",
+    "pi-web-access",
+    "pi-background-tasks",
+    "pi-secret-mask",
+    "@juicesharp/rpiv-ask-user-question",
+    "@juicesharp/rpiv-todo",
+    "@plannotator/pi-extension",
+    "@llblab/pi-telegram",
+    "@narumitw/pi-goal"
+  ],
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
     "@earendil-works/pi-agent-core": "*",
