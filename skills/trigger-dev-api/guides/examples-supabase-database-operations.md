@@ -1,0 +1,295 @@
+# Supabase database operations using Trigger.dev
+
+> Source: https://trigger.dev/docs/guides/examples/supabase-database-operations
+
+[​](https://trigger.dev/docs/guides/examples/supabase-database-operations#add-a-new-user-to-a-table-in-a-supabase-database)
+
+Add a new user to a table in a Supabase database
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+This is a basic task which inserts a new row into a table from a Trigger.dev task.
+
+### 
+
+[​](https://trigger.dev/docs/guides/examples/supabase-database-operations#key-features)
+
+Key features
+
+*   Shows how to set up a Supabase client using the `@supabase/supabase-js` library
+*   Shows how to add a new row to a table using `insert`
+
+### 
+
+[​](https://trigger.dev/docs/guides/examples/supabase-database-operations#prerequisites)
+
+Prerequisites
+
+*   A [Supabase account](https://supabase.com/dashboard/)
+     and a project set up
+*   In your Supabase project, create a table called `user_subscriptions`.
+*   In your `user_subscriptions` table, create a new column:
+    *   `user_id`, with the data type: `text`
+
+### 
+
+[​](https://trigger.dev/docs/guides/examples/supabase-database-operations#task-code)
+
+Task code
+
+trigger/supabase-database-insert.ts
+
+    import { createClient } from "@supabase/supabase-js";
+    import { task } from "@trigger.dev/sdk";
+    import jwt from "jsonwebtoken";
+    // Generate the Typescript types using the Supabase CLI: https://supabase.com/docs/guides/api/rest/generating-types
+    import { Database } from "database.types";
+    
+    export const supabaseDatabaseInsert = task({
+      id: "add-new-user",
+      run: async (payload: { userId: string }) => {
+        const { userId } = payload;
+    
+        // Get JWT secret from env vars
+        const jwtSecret = process.env.SUPABASE_JWT_SECRET;
+        if (!jwtSecret) {
+          throw new Error("SUPABASE_JWT_SECRET is not defined in environment variables");
+        }
+    
+        // Create JWT token for the user
+        const token = jwt.sign({ sub: userId }, jwtSecret, { expiresIn: "1h" });
+    
+        // Initialize Supabase client with JWT
+        const supabase = createClient<Database>(
+          process.env.SUPABASE_URL as string,
+          process.env.SUPABASE_ANON_KEY as string,
+          {
+            global: {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            },
+          }
+        );
+    
+        // Insert a new row into the user_subscriptions table with the provided userId
+        const { error } = await supabase.from("user_subscriptions").insert({
+          user_id: userId,
+        });
+    
+        // If there was an error inserting the new user, throw an error
+        if (error) {
+          throw new Error(`Failed to insert new user: ${error.message}`);
+        }
+    
+        return {
+          message: `New user added successfully: ${userId}`,
+        };
+      },
+    });
+    
+
+To learn more about how to properly configure Supabase auth for Trigger.dev tasks, please refer to our [Supabase Authentication guide](https://trigger.dev/docs/guides/frameworks/supabase-authentication)
+. It demonstrates how to use JWT authentication for user-specific operations or your service role key for admin-level access.
+
+### 
+
+[​](https://trigger.dev/docs/guides/examples/supabase-database-operations#testing-your-task)
+
+Testing your task
+
+To test this task in the [Trigger.dev dashboard](https://cloud.trigger.dev/)
+, you can use the following payload:
+
+    {
+      "userId": "user_12345"
+    }
+    
+
+If the task completes successfully, you will see a new row in your `user_subscriptions` table with the `user_id` set to `user_12345`.
+
+[​](https://trigger.dev/docs/guides/examples/supabase-database-operations#update-a-user%E2%80%99s-subscription-on-a-table-in-a-supabase-database)
+
+Update a user’s subscription on a table in a Supabase database
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+This task shows how to update a user’s subscription on a table. It checks if the user already has a subscription and either inserts a new row or updates an existing row with the new plan. This type of task is useful for managing user subscriptions, updating user details, or performing other operations you might need to do on a database table.
+
+### 
+
+[​](https://trigger.dev/docs/guides/examples/supabase-database-operations#key-features-2)
+
+Key features
+
+*   Shows how to set up a Supabase client using the `@supabase/supabase-js` library
+*   Adds a new row to the table if the user doesn’t exist using `insert`
+*   Checks if the user already has a plan, and if they do updates the existing row using `update`
+*   Demonstrates how to use [AbortTaskRunError](https://trigger.dev/docs/errors-retrying#using-aborttaskrunerror)
+     to stop the task run without retrying if an invalid plan type is provided
+
+### 
+
+[​](https://trigger.dev/docs/guides/examples/supabase-database-operations#prerequisites-2)
+
+Prerequisites
+
+*   A [Supabase account](https://supabase.com/dashboard/)
+     and a project set up
+*   In your Supabase project, create a table called `user_subscriptions` (if you haven’t already)
+*   In your `user_subscriptions` table, create these columns (if they don’t already exist):
+    *   `user_id`, with the data type: `text`
+    *   `plan`, with the data type: `text`
+    *   `updated_at`, with the data type: `timestamptz`
+
+### 
+
+[​](https://trigger.dev/docs/guides/examples/supabase-database-operations#task-code-2)
+
+Task code
+
+trigger/supabase-update-user-subscription.ts
+
+    import { createClient } from "@supabase/supabase-js";
+    import { AbortTaskRunError, task } from "@trigger.dev/sdk";
+    // Generate the Typescript types using the Supabase CLI: https://supabase.com/docs/guides/api/rest/generating-types
+    import { Database } from "database.types";
+    
+    // Define the allowed plan types
+    type PlanType = "hobby" | "pro" | "enterprise";
+    
+    // Create a single Supabase client for interacting with your database
+    // 'Database' supplies the type definitions to supabase-js
+    const supabase = createClient<Database>(
+      // These details can be found in your Supabase project settings under `API`
+      process.env.SUPABASE_PROJECT_URL as string, // e.g. https://abc123.supabase.co - replace 'abc123' with your project ID
+      process.env.SUPABASE_SERVICE_ROLE_KEY as string // Your service role secret key
+    );
+    
+    export const supabaseUpdateUserSubscription = task({
+      id: "update-user-subscription",
+      run: async (payload: { userId: string; newPlan: PlanType }) => {
+        const { userId, newPlan } = payload;
+    
+        // Abort the task run without retrying if the new plan type is invalid
+        if (!["hobby", "pro", "enterprise"].includes(newPlan)) {
+          throw new AbortTaskRunError(
+            `Invalid plan type: ${newPlan}. Allowed types are 'hobby', 'pro', or 'enterprise'.`
+          );
+        }
+    
+        // Query the user_subscriptions table to check if the user already has a subscription
+        const { data: existingSubscriptions } = await supabase
+          .from("user_subscriptions")
+          .select("user_id")
+          .eq("user_id", userId);
+    
+        if (!existingSubscriptions || existingSubscriptions.length === 0) {
+          // If there are no existing users with the provided userId and plan, insert a new row
+          const { error: insertError } = await supabase.from("user_subscriptions").insert({
+            user_id: userId,
+            plan: newPlan,
+            updated_at: new Date().toISOString(),
+          });
+    
+          // If there was an error inserting the new subscription, throw an error
+          if (insertError) {
+            throw new Error(`Failed to insert user subscription: ${insertError.message}`);
+          }
+        } else {
+          // If the user already has a subscription, update their existing row
+          const { error: updateError } = await supabase
+            .from("user_subscriptions")
+            // Set the plan to the new plan and update the timestamp
+            .update({ plan: newPlan, updated_at: new Date().toISOString() })
+            .eq("user_id", userId);
+    
+          // If there was an error updating the subscription, throw an error
+          if (updateError) {
+            throw new Error(`Failed to update user subscription: ${updateError.message}`);
+          }
+        }
+    
+        // Return an object with the userId and newPlan
+        return {
+          userId,
+          newPlan,
+        };
+      },
+    });
+    
+
+This task uses your service role secret key to bypass Row Level Security. There are different ways of configuring your [RLS policies](https://supabase.com/docs/guides/database/postgres/row-level-security)
+, so always make sure you have the correct permissions set up for your project.
+
+### 
+
+[​](https://trigger.dev/docs/guides/examples/supabase-database-operations#testing-your-task-2)
+
+Testing your task
+
+To test this task in the [Trigger.dev dashboard](https://cloud.trigger.dev/)
+, you can use the following payload:
+
+    {
+      "userId": "user_12345",
+      "newPlan": "pro"
+    }
+    
+
+If the task completes successfully, you will see a new row in your `user_subscriptions` table with the `user_id` set to `user_12345`, the `plan` set to `pro`, and the `updated_at` timestamp updated to the current time.
+
+[​](https://trigger.dev/docs/guides/examples/supabase-database-operations#learn-more-about-supabase-and-trigger-dev)
+
+Learn more about Supabase and Trigger.dev
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+### 
+
+[​](https://trigger.dev/docs/guides/examples/supabase-database-operations#full-walkthrough-guides-from-development-to-deployment)
+
+Full walkthrough guides from development to deployment
+
+[Edge function hello world guide\
+-------------------------------\
+\
+Learn how to trigger a task from a Supabase edge function when a URL is visited.](https://trigger.dev/docs/guides/frameworks/supabase-edge-functions-basic)
+
+[Database webhooks guide\
+-----------------------\
+\
+Learn how to trigger a task from a Supabase edge function when an event occurs in your database.](https://trigger.dev/docs/guides/frameworks/supabase-edge-functions-database-webhooks)
+
+[Supabase authentication guide\
+-----------------------------\
+\
+Learn how to authenticate Supabase tasks using JWTs for Row Level Security (RLS) or service role keys for admin access.](https://trigger.dev/docs/guides/frameworks/supabase-authentication)
+
+### 
+
+[​](https://trigger.dev/docs/guides/examples/supabase-database-operations#task-examples-with-code-you-can-copy-and-paste)
+
+Task examples with code you can copy and paste
+
+[Supabase database operations\
+----------------------------\
+\
+Run basic CRUD operations on a table in a Supabase database using Trigger.dev.](https://trigger.dev/docs/guides/examples/supabase-database-operations)
+
+[Supabase Storage upload\
+-----------------------\
+\
+Download a video from a URL and upload it to Supabase Storage using S3.](https://trigger.dev/docs/guides/examples/supabase-storage-upload)
+
+Was this page helpful?
+
+YesNo
+
+[Previous](https://trigger.dev/docs/guides/examples/sharp-image-processing)
+[Supabase Storage uploadThis example demonstrates how to upload files to Supabase Storage using Trigger.dev.\
+\
+Next](https://trigger.dev/docs/guides/examples/supabase-storage-upload)
+
+Ctrl+I
+
+Assistant
+
+Responses are generated using AI and may contain mistakes.

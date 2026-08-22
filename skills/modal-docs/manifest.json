@@ -1,0 +1,16 @@
+{
+  "source_url": "https://modal.com/docs",
+  "skill_name": "modal-docs",
+  "api_name": "Modal Docs",
+  "layout": "layered",
+  "page_count": 270,
+  "endpoint_count": 0,
+  "reason": "270 pages and 0 endpoints; thresholds are 100 pages / 51 endpoints (override: layered)",
+  "filters": {
+    "exclude_paths": [],
+    "include_paths": []
+  },
+  "workarounds": [],
+  "first_scraped": "2026-07-09T14:53:14Z",
+  "last_updated": "2026-07-09T14:53:14Z"
+}

@@ -1,0 +1,19 @@
+{
+  "source_url": "https://developer.unipile.com/reference",
+  "skill_name": "unipile-api",
+  "skill_type": "api",
+  "api_name": "Unipile API",
+  "description": "Reference for the Unipile API. Use whenever the user asks about the Unipile API HTTP API, REST endpoints, webhooks, authentication/API tokens, or needs developer/product documentation for Unipile API. Cite source URLs when giving API details.",
+  "layout": "layered",
+  "page_count": 101,
+  "endpoint_count": 7,
+  "reason": "101 pages and 7 endpoints; thresholds are 100 pages / 51 endpoints (override: layered)",
+  "filters": {
+    "include_paths": [
+      "/reference/.*"
+    ]
+  },
+  "workarounds": [],
+  "first_scraped": "2026-07-30T08:40:47Z",
+  "last_updated": "2026-07-30T08:40:47Z"
+}

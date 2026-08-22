@@ -1,0 +1,26 @@
+{
+  "source_url": "https://marketplace.gohighlevel.com/docs",
+  "skill_name": "GHL-API",
+  "skill_type": "api",
+  "api_name": "GoHighLevel API",
+  "description": "Reference for the GoHighLevel API. Use whenever the user asks about the GoHighLevel API HTTP API, REST endpoints, webhooks, authentication/API tokens, or needs developer/product documentation for GoHighLevel API. Cite source URLs when giving API details.",
+  "layout": "layered",
+  "page_count": 939,
+  "endpoint_count": 160,
+  "reason": "939 pages and 160 endpoints; thresholds are 100 pages / 51 endpoints (override: layered)",
+  "filters": {
+    "exclude_paths": [
+      "/docs/2021-04-15",
+      "/docs/2021-07-28",
+      "/docs/2023-02-21",
+      "/docs/blog",
+      "/docs/markdown-page"
+    ]
+  },
+  "workarounds": [
+    "batch-scrape-non-dated-urls",
+    "map-batch-scrape"
+  ],
+  "first_scraped": "2026-08-13T00:47:19Z",
+  "last_updated": "2026-08-13T09:41:10Z"
+}

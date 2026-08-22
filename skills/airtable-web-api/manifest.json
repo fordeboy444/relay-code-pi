@@ -1,0 +1,16 @@
+{
+  "source_url": "https://airtable.com/developers/web/api",
+  "skill_name": "airtable-web-api",
+  "api_name": "Airtable Web API",
+  "layout": "layered",
+  "page_count": 151,
+  "endpoint_count": 0,
+  "reason": "151 pages and 0 endpoints; thresholds are 100 pages / 51 endpoints",
+  "filters": {
+    "exclude_paths": [],
+    "include_paths": []
+  },
+  "workarounds": [],
+  "first_scraped": "2026-07-08T19:36:53Z",
+  "last_updated": "2026-07-08T23:03:57Z"
+}

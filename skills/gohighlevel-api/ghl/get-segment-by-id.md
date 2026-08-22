@@ -1,0 +1,120 @@
+# Get segment by ID
+
+- **URL:** https://marketplace.gohighlevel.com/docs/ghl/ad-publishing/google-get-segment-by-id
+- **Summary:** Retrieve a specific Google Ads audience segment by ID
+
+[Skip to main content](https://marketplace.gohighlevel.com/docs/ghl/ad-publishing/google-get-segment-by-id#__docusaurus_skipToContent_fallback)
+
+Version: v3
+
+Get segment by ID
+=================
+
+GET 
+
+https://services.leadconnectorhq.com/ad-publishing/google/segments/:segmentId
+
+Copy for LLMView as MarkdownOpen in ClaudeOpen in ChatGPTOpen in Cursor
+
+Retrieve a specific Google Ads audience segment by ID
+
+### Requirements
+
+#### Scope(s)
+
+`adPublishing.readonly`
+
+#### Auth Method(s)
+
+`OAuth Access Token``Private Integration Token`
+
+#### Token Type(s)
+
+`Sub-Account Token`
+
+Request[​](https://marketplace.gohighlevel.com/docs/ghl/ad-publishing/google-get-segment-by-id#request "Direct link to request")
+
+### Header Parameters
+
+**Version** stringrequired
+
+**Possible values:** \[`2021-07-28`\]
+
+API Version
+
+**Example:** `2021-07-28`
+
+### Path Parameters
+
+**segmentId** stringrequired
+
+Segment identifier
+
+**Example:** `seg_abc123`
+
+### Query Parameters
+
+**locationId** stringrequired
+
+Location identifier
+
+**Example:** `HChooFuiyPpVYzeJ4HMe`
+
+**type** stringrequired
+
+**Possible values:** \[`CUSTOM_SEGMENTS`, `DATA_SEGMENTS`\]
+
+Segment type
+
+**Example:** `CUSTOM_SEGMENTS`
+
+Responses[​](https://marketplace.gohighlevel.com/docs/ghl/ad-publishing/google-get-segment-by-id#responses "Direct link to Responses")
+
+*   200
+*   400
+*   401
+*   422
+> Common reference appendix (shared error/status catalog): see [../_shared-appendix.md](../_shared-appendix.md).
+**name:** [Authorization](https://marketplace.gohighlevel.com/docs/ghl/ad-publishing/ad-manager-api#authentication)
+**type:** http**scopes:** `adPublishing.readonly`**scheme:** bearer**bearerFormat:** JWT**in:** header**description:** Use the Access Token generated with user type as Sub-Account (OR) Private Integration Token of Sub-Account.
+
+*   curl
+*   nodejs
+*   python
+*   php
+*   java
+*   go
+*   ruby
+*   powershell
+
+*   CURL
+
+    curl -L 'https://services.leadconnectorhq.com/ad-publishing/google/segments/seg_abc123?locationId=HChooFuiyPpVYzeJ4HMe&type=CUSTOM_SEGMENTS' \-H 'Version: 2021-07-28' \-H 'Authorization: Bearer <Authorization>'
+
+RequestCollapse all
+
+Base URL
+
+Edit
+
+https://services.leadconnectorhq.com
+
+Auth
+
+Bearer Token
+
+Parameters
+
+segmentId — pathrequired
+
+locationId — queryrequired
+
+type — queryrequired\---CUSTOM_SEGMENTSDATA_SEGMENTS
+
+Version — headerrequired\---2021-07-28
+
+Send API Request
+
+ResponseClear
+
+Click the `Send API Request` button above and see the response here!

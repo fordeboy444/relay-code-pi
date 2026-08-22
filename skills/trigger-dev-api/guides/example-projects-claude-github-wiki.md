@@ -1,0 +1,129 @@
+# Claude GitHub wiki
+
+> Source: https://trigger.dev/docs/guides/example-projects/claude-github-wiki
+
+[​](https://trigger.dev/docs/guides/example-projects/claude-github-wiki#overview)
+
+Overview
+---------------------------------------------------------------------------------------------
+
+This demo shows how to build an AI agent using the Claude Agent SDK that clones any public GitHub repo and uses Claude to answer questions about its codebase. The agent explores the code using `Grep` and `Read` tools to provide detailed, accurate answers.
+
+[​](https://trigger.dev/docs/guides/example-projects/claude-github-wiki#tech-stack)
+
+Tech stack
+-------------------------------------------------------------------------------------------------
+
+*   **[Next.js](https://nextjs.org/)
+    ** – React framework with App Router for the frontend
+*   **[Claude Agent SDK](https://docs.anthropic.com/en/docs/agents-and-tools/claude-agent-sdk)
+    ** – Anthropic’s SDK for building AI agents with file system and search tools
+*   **[Trigger.dev](https://trigger.dev/)
+    ** – workflow orchestration with real-time streaming, observability, and deployment
+
+[​](https://trigger.dev/docs/guides/example-projects/claude-github-wiki#demo-video)
+
+Demo video
+-------------------------------------------------------------------------------------------------
+
+[​](https://trigger.dev/docs/guides/example-projects/claude-github-wiki#github-repo)
+
+GitHub repo
+---------------------------------------------------------------------------------------------------
+
+View the Claude GitHub wiki agent repo
+--------------------------------------
+
+Click here to view the full code for this project in our examples repository on GitHub. You can fork it and use it as a starting point for your own project.
+
+[​](https://trigger.dev/docs/guides/example-projects/claude-github-wiki#how-it-works)
+
+How it works
+-----------------------------------------------------------------------------------------------------
+
+The agent workflow:
+
+1.  **Receive question** – User provides a GitHub URL and question about the repo
+2.  **Clone repository** – Shallow clone to a temp directory (depth=1 for speed)
+3.  **Analyze with Claude** – Agent explores the codebase using allowed tools:
+    *   `Grep` – Search for patterns across files
+    *   `Read` – Read file contents
+4.  **Stream response** – Analysis streams to the frontend in real-time
+5.  **Cleanup** – Temp directory is always deleted, even on failure
+
+[​](https://trigger.dev/docs/guides/example-projects/claude-github-wiki#features)
+
+Features
+---------------------------------------------------------------------------------------------
+
+*   **Ask anything about any public repo** – Architecture, security vulnerabilities, API endpoints, testing strategies, etc.
+*   **Claude Agent SDK exploration** – Claude explores the codebase using `Grep` and `Read` tools
+*   **Cancel anytime** – Abort long-running tasks with proper cleanup
+*   **Trigger.dev [Realtime](https://trigger.dev/docs/realtime/overview)
+     streaming** – Watch Claude’s analysis stream in as it’s generated
+*   **Progress tracking** – See clone status, analysis progress, and repo size via Trigger.dev metadata
+
+[​](https://trigger.dev/docs/guides/example-projects/claude-github-wiki#relevant-code)
+
+Relevant code
+-------------------------------------------------------------------------------------------------------
+
+| File | Description |
+| --- | --- |
+| [`trigger/analyze-repo.ts`](https://github.com/triggerdotdev/examples/blob/main/claude-agent-github-wiki/trigger/analyze-repo.ts) | Main task that clones repo, runs Claude agent, and streams response |
+| [`trigger/agent-stream.ts`](https://github.com/triggerdotdev/examples/blob/main/claude-agent-github-wiki/trigger/agent-stream.ts) | Typed stream definition for real-time text responses |
+| [`app/api/analyze-repo/route.ts`](https://github.com/triggerdotdev/examples/blob/main/claude-agent-github-wiki/app/api/analyze-repo/route.ts) | API endpoint that triggers the task |
+| [`app/response/[runId]/page.tsx`](https://github.com/triggerdotdev/examples/blob/main/claude-agent-github-wiki/app/response/%5BrunId%5D/page.tsx) | Real-time streaming display with progress |
+
+[​](https://trigger.dev/docs/guides/example-projects/claude-github-wiki#trigger-config-ts)
+
+trigger.config.ts
+---------------------------------------------------------------------------------------------------------------
+
+You need to mark the Claude Agent SDK as external in your trigger.config.ts file.
+
+trigger.config.ts
+
+    import { defineConfig } from "@trigger.dev/sdk";
+    
+    export default defineConfig({
+      project: process.env.TRIGGER_PROJECT_REF!,
+      runtime: "node",
+      logLevel: "log",
+      maxDuration: 3600, // 60 minutes for large repos
+      build: {
+        external: ["@anthropic-ai/claude-agent-sdk"],
+      },
+      machine: "medium-2x",
+    });
+    
+
+Adding packages to `external` prevents them from being bundled, which is necessary for the Claude Agent SDK. See the [build configuration docs](https://trigger.dev/docs/config/config-file#external)
+ for more details.
+
+[​](https://trigger.dev/docs/guides/example-projects/claude-github-wiki#learn-more)
+
+Learn more
+-------------------------------------------------------------------------------------------------
+
+*   [**Building agents with Claude Agent SDK**](https://trigger.dev/docs/guides/ai-agents/claude-code-trigger)
+     – Comprehensive guide for using Claude Agent SDK with Trigger.dev
+*   [**Trigger.dev Realtime**](https://trigger.dev/docs/realtime/overview)
+     – Stream task progress to your frontend
+*   [**Errors and retrying**](https://trigger.dev/docs/errors-retrying)
+     – Handle failures gracefully
+
+Was this page helpful?
+
+YesNo
+
+[Previous](https://trigger.dev/docs/guides/example-projects/claude-changelog-generator)
+[Claude thinking chatbotThis example Next.js project uses Vercel's AI SDK and Anthropic's Claude 3.7 model to create a thinking chatbot.\
+\
+Next](https://trigger.dev/docs/guides/example-projects/claude-thinking-chatbot)
+
+⌘I
+
+Assistant
+
+Responses are generated using AI and may contain mistakes.

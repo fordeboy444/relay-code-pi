@@ -1,0 +1,43 @@
+# Passing local data | Modal Docs
+
+- **URL:** https://modal.com/docs/guide/local-data
+- **Summary:** If you have a function that needs access to some data not present in your Python files themselves you have a few options for bundling that data with your Modal App.
+
+Copy page
+
+Passing local data
+==================
+
+If you have a function that needs access to some data not present in your Python files themselves you have a few options for bundling that data with your Modal App.
+
+Passing function arguments 
+
+The simplest and most straight-forward way is to read the data from your local script and pass the data to the outermost Modal Function call:
+
+    import json
+    
+    
+    @app.function()
+    def foo(a):
+        print(sum(a["numbers"]))
+    
+    
+    @app.local_entrypoint()
+    def main():
+        data_structure = json.load(open("blob.json"))
+        foo.remote(data_structure)
+
+Any data of reasonable size that is serializable through [cloudpickle](https://github.com/cloudpipe/cloudpickle)
+ is passable as an argument to Modal Functions.
+
+Refer to the section on [global variables](https://modal.com/docs/guide/global-variables)
+ for how to work with objects in global scope that can only be initialized locally.
+
+Including local files 
+
+For including local files for your Modal Functions to access, see [Defining Images](https://modal.com/docs/guide/images)
+.
+
+[Passing local data](https://modal.com/docs/guide/local-data#passing-local-data)
+[Passing function arguments](https://modal.com/docs/guide/local-data#passing-function-arguments)
+[Including local files](https://modal.com/docs/guide/local-data#including-local-files)

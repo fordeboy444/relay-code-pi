@@ -1,0 +1,75 @@
+# Add base collaborator - Airtable Web API
+
+- **URL:** https://airtable.com/developers/web/api/add-base-collaborator
+- **Summary:** Add base collaborator post`https://api.airtable.com/v0/meta/bases/{baseId}/collaborators` Add a new base collaborator.
+
+### Your browser version is not supported. Try our [desktop apps](https://www.airtable.com/downloads)
+!
+
+Alternatively, use the latest version of [Chrome](https://www.google.com/intl/en/chrome/browser/)
+, [Firefox](http://www.mozilla.org/en-US/)
+, Safari, or Edge instead.
+
+Collaborators
+
+Add base collaborator
+=====================
+
+post`https://api.airtable.com/v0/meta/bases/{baseId}/collaborators`
+
+Add a new base collaborator. Despite the name, this route currently only supports adding one collaborator at a time.
+
+### Requirements
+
+|     |     |
+| --- | --- |
+| Authentication | [Personal access token](https://airtable.com/developers/web/api/authentication#types-of-token)<br>, [OAuth integration](https://airtable.com/developers/web/api/authentication#types-of-token) |
+| Scope | [`workspacesAndBases:write`](https://airtable.com/developers/web/api/scopes#workspaces-and-bases-write) |
+| User role | Base collaborators subject to [sharing restrictions](https://support.airtable.com/docs/workspace-sharing-restrictions) |
+| Billing plans | Enterprise (pre-2023.08 legacy plan), Enterprise Scale |
+
+### Path parameters
+
+|     |     |
+| --- | --- |
+| <br>`baseId` | `string` |
+
+### Request body
+
+`collaborators`
+
+`array of any of the below objects`
+
+This endpoint accepts two types of collaborators: **individual user** and **group**.
+
+`permissionLevel`
+
+[`Application Permission Levels`](https://airtable.com/developers/web/api/model/application-permission-levels)
+
+`user`
+
+`object`
+
+|     |     |
+| --- | --- |
+| <br>`id` | `string`<br><br>A user ID |
+
+`permissionLevel`
+
+[`Application Permission Levels`](https://airtable.com/developers/web/api/model/application-permission-levels)
+
+`group`
+
+`object`
+
+|     |     |
+| --- | --- |
+| <br>`id` | `string`<br><br>A user group ID |
+
+### Response format
+
+This endpoint returns an empty response on success.
+
+### Error responses
+
+!!

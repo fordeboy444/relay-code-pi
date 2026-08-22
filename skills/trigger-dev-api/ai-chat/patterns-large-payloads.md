@@ -1,0 +1,169 @@
+# Large payloads in chat.agent
+
+> Source: https://trigger.dev/docs/ai-chat/patterns/large-payloads
+
+The AI Agents and Prompts surface ships as part of the **v4.5 release candidate**. Install with `@trigger.dev/sdk@rc` (or pin `4.5.0-rc.0` or later) to use these features — they aren’t yet on the latest stable, and APIs may still change before the 4.5.0 GA. See [supported AI SDK versions](https://trigger.dev/docs/ai-chat/reference#compatibility)
+ and the [AI chat changelog](https://trigger.dev/docs/ai-chat/changelog)
+ for details.
+
+The realtime stream that backs `chat.agent` enforces a **per-record cap of ~1 MiB** (`1048576` bytes minus a small envelope reserve). Anything written through the chat output — auto-piped LLM chunks, `chat.response.write`, custom `writer.write` parts — counts as one record per chunk and is rejected if it crosses the cap. This is a platform-level limit and cannot be raised per project or per stream.
+
+[​](https://trigger.dev/docs/ai-chat/patterns/large-payloads#what-you%E2%80%99ll-see)
+
+What you’ll see
+--------------------------------------------------------------------------------------------------------
+
+When a chunk crosses the cap, the run fails with a typed [`ChatChunkTooLargeError`](https://trigger.dev/docs/ai-chat/error-handling)
+:
+
+    ChatChunkTooLargeError: chat.agent chunk of type "tool-output-available" is 2000126 bytes,
+    over the realtime stream's per-record cap of 1047552 bytes. For oversized payloads
+    (e.g. large tool outputs), write the value to your own store and emit only an id/url
+    through the chat stream — see https://trigger.dev/docs/ai-chat/patterns/large-payloads.
+    
+
+The error includes:
+
+*   `chunkType` — discriminant on the chunk that failed (e.g. `tool-output-available`, `data-handover`, `text-delta`).
+*   `chunkSize` — UTF-8 byte count of the JSON-serialized record.
+*   `maxSize` — the effective cap.
+
+You can catch and re-throw / log it explicitly:
+
+    import { ChatChunkTooLargeError, isChatChunkTooLargeError } from "@trigger.dev/sdk";
+    
+    try {
+      await someWrite();
+    } catch (err) {
+      if (isChatChunkTooLargeError(err)) {
+        logger.error("Oversized chunk", { type: err.chunkType, size: err.chunkSize });
+      }
+      throw err;
+    }
+    
+
+[​](https://trigger.dev/docs/ai-chat/patterns/large-payloads#most-common-cause-large-tool-outputs)
+
+Most common cause: large tool outputs
+-------------------------------------------------------------------------------------------------------------------------------------------
+
+If you return a `streamText` result from `run()`, the AI SDK auto-pipes its `UIMessageStream` into the chat output. A tool whose result object is large (a fetched HTML body, a CSV blob, an image as base64, a deep DB row dump) gets emitted as one `tool-output-available` chunk — and that’s the chunk that overruns. **Diagnose first**: log tool sizes during development.
+
+    const fetchPage = tool({
+      inputSchema: z.object({ url: z.string().url() }),
+      execute: async ({ url }) => {
+        const html = await (await fetch(url)).text();
+        if (html.length > 500_000) {
+          logger.warn("Large tool output", { tool: "fetchPage", bytes: html.length });
+        }
+        return { html };
+      },
+    });
+    
+
+If the size is unbounded by input, fix the tool — not the stream.
+
+[​](https://trigger.dev/docs/ai-chat/patterns/large-payloads#id-reference-pattern)
+
+ID-reference pattern
+----------------------------------------------------------------------------------------------------------
+
+Store the large value in your own database (or object store) and emit only an identifier through the chat stream. The frontend fetches the full payload separately on demand. This keeps the chat stream small, predictable, and resumable, and lets you reuse the value across turns or sessions without re-streaming it.
+
+task.ts
+
+api/document/\[id\]/route.ts
+
+component.tsx
+
+    import { chat } from "@trigger.dev/sdk/ai";
+    import { tool } from "ai";
+    import { z } from "zod";
+    
+    const fetchPage = tool({
+      description: "Fetch a URL and store the HTML for later inspection.",
+      inputSchema: z.object({ url: z.string().url() }),
+      execute: async ({ url }) => {
+        const html = await (await fetch(url)).text();
+        const docId = await db.documents.create({
+          data: { url, html, byteSize: html.length },
+        });
+    
+        // Tool result is small — just an id and metadata.
+        // The model and the UI both work with this lightweight handle.
+        return {
+          docId,
+          url,
+          byteSize: html.length,
+          preview: html.slice(0, 500),
+        };
+      },
+    });
+    
+
+The same pattern works for `chat.response.write` — push the heavy value to your DB, then emit a small data part with the id:
+
+    const id = await db.attachments.create({ data: { content: hugeReport } });
+    chat.response.write({ type: "data-report", data: { id, summary: shortSummary } });
+    
+
+Persist the large value **before** you emit the id chunk. If the chunk reaches the UI before the row is written, the frontend gets a 404 on the follow-up fetch.
+
+[​](https://trigger.dev/docs/ai-chat/patterns/large-payloads#transient-ui-parts)
+
+Transient UI parts
+------------------------------------------------------------------------------------------------------
+
+For progress indicators or status data that should stream to the UI but not persist into the response message, use `chat.response.write` with `transient: true`. The chunk still travels on the chat stream (so the 1 MiB per-record cap still applies), but it never lands in `responseMessage` or `uiMessages`:
+
+    chat.response.write({
+      type: "data-progress",
+      data: { percent: 50 },
+      transient: true,
+    });
+    
+
+For genuinely high-volume diagnostic data (per-token traces, large debug dumps), don’t try to ship it through the realtime stream at all. Log to your own store (DB, object storage, OTel logger) and surface it through a separate UI route that isn’t tied to the chat session.
+
+[​](https://trigger.dev/docs/ai-chat/patterns/large-payloads#what-does-not-trigger-the-cap)
+
+What does **not** trigger the cap
+--------------------------------------------------------------------------------------------------------------------------------
+
+These calls don’t go through the realtime stream and have no per-record cap:
+
+*   [`chat.history.set` / `slice` / `replace` / `remove`](https://trigger.dev/docs/ai-chat/backend#chat-history)
+     — locals-only mutations on the in-memory message list.
+*   [`chat.inject`](https://trigger.dev/docs/ai-chat/background-injection#chat-inject)
+     — appends to the run’s pending message queue, not the stream.
+*   [`chat.defer`](https://trigger.dev/docs/ai-chat/background-injection#chat-defer-standalone)
+     — promise registry; awaited at turn boundaries, never serialized to the stream.
+
+The control markers `chat.agent` emits internally (`trigger:turn-complete`, `trigger:upgrade-required`) are tiny by construction.
+
+[​](https://trigger.dev/docs/ai-chat/patterns/large-payloads#see-also)
+
+See also
+----------------------------------------------------------------------------------
+
+*   [Error handling](https://trigger.dev/docs/ai-chat/error-handling)
+     — how `ChatChunkTooLargeError` flows through the layers.
+*   [Database persistence](https://trigger.dev/docs/ai-chat/patterns/database-persistence)
+     — your own store as the durable backing for ID references.
+*   [Client protocol](https://trigger.dev/docs/ai-chat/client-protocol)
+     — chunk shapes that travel on the chat stream.
+
+Was this page helpful?
+
+YesNo
+
+[Previous](https://trigger.dev/docs/ai-chat/patterns/tool-result-auditing)
+[Agent SkillsShip reusable capabilities (folders with SKILL.md + scripts) that a chat agent discovers and invokes on demand.\
+\
+Next](https://trigger.dev/docs/ai-chat/patterns/skills)
+
+⌘I
+
+Assistant
+
+Responses are generated using AI and may contain mistakes.

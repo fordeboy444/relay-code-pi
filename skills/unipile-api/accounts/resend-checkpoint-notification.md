@@ -1,0 +1,285 @@
+# Resend checkpoint notification
+
+- **URL:** https://developer.unipile.com/reference/accountscontroller_resendcheckpoint
+- **Summary:** Might it be 2FA, OTP or In-app Validation, this route makes you able on certain providers to resend the notification.
+
+account_id
+
+string
+
+required
+
+length ≥ 1
+
+A unique identifier.
+
+provider
+
+string
+
+enum
+
+required
+
+LINKEDININSTAGRAMMESSENGER
+
+Allowed:
+
+`LINKEDIN``INSTAGRAM``MESSENGER`
+
+200
+
+=======
+
+object
+
+object
+
+string
+
+enum
+
+required
+
+`CheckpointResend`
+
+account_id
+
+string
+
+required
+
+length ≥ 1
+
+A unique identifier.
+
+success
+
+boolean
+
+required
+
+400
+
+Bad Request
+
+Invalid parameters - Type: "errors/invalid_parameters"
+
+One or more request parameters are invalid or missing.
+
+Missing parameters - Type: "errors/missing_parameters"
+
+One or more request parameters are missing.
+
+Invalid parameters - Type: "errors/invalid_request"
+
+One or a combination of request parameters are invalid.
+
+Malformed request - Type: "errors/malformed_request"
+
+The given request has been rejected by the provider.
+
+Content too large - Type: "errors/content_too_large"
+
+The request payload or filter query is too large and has been rejected by the provider.
+
+Too many characters - Type: "errors/too_many_characters"
+
+The provided content exceeds the character limit.
+
+Unescaped characters - Type: "errors/unescaped_characters"
+
+The request path contains unescaped characters.
+
+Limit too high - Type: "errors/limit_too_high"
+
+Provider cannot accept such high pagination limit. See API reference for details.
+
+Invalid action - Type: "errors/invalid_action"
+
+This action is invalid.
+
+Invalid label - Type: "errors/invalid_label"
+
+This label is invalid.
+
+401
+
+Unauthorized
+
+Missing credentials - Type: "errors/missing_credentials"
+
+Some credentials are necessary to perform the request.
+
+Multiple sessions - Type: "errors/multiple_sessions"
+
+LinkedIn limits the use of multiple sessions on certain Recruiter accounts. This error restricts access to this route only, but causing a popup to appear in the user's browser, prompting them to choose a session, which can disconnect the current account. To avoid this error, use the cookie connection method.
+
+Wrong account - Type: "errors/wrong_account"
+
+The provided credentials do not match the correct account.
+
+Invalid credentials - Type: "errors/invalid_credentials"
+
+The provided credentials are invalid.
+
+Invalid proxy credentials - Type: "errors/invalid_proxy_credentials"
+
+The provided proxy credentials are invalid.
+
+Invalid IMAP configuration - Type: "errors/invalid_imap_configuration"
+
+The provided IMAP configuration is invalid.
+
+Invalid SMTP configuration - Type: "errors/invalid_smtp_configuration"
+
+The provided SMTP configuration is invalid.
+
+Invalid checkpoint solution - Type: "errors/invalid_checkpoint_solution"
+
+The checkpoint resolution did not pass successfully. Please retry.
+
+Checkpoint error - Type: "errors/checkpoint_error"
+
+The checkpoint does not appear to be resolvable. Please try again and contact support if the problem persists.
+
+Expired credentials - Type: "errors/expired_credentials"
+
+Invalid credentials. Please check your username and password and try again.
+
+Expired link - Type: "errors/expired_link"
+
+This link has expired. Please return to the application and generate a new one.
+
+Insufficient privileges - Type: "errors/insufficient_privileges"
+
+This resource seems to be out of your scopes.
+
+Disconnected account - Type: "errors/disconnected_account"
+
+The account appears to be disconnected from the provider service.
+
+Disconnected feature - Type: "errors/disconnected_feature"
+
+The service you're trying to reach appears to be disconnected.
+
+500
+
+Internal Server Error
+
+Unexpected error - Type: "errors/unexpected_error"
+
+Something went wrong. {{moreDetails}}
+
+Provider error - Type: "errors/provider_error"
+
+The provider is experiencing operational problems. Please try again later.
+
+Authentication intent error - Type: "errors/authentication_intent_error"
+
+The current authentication intent was killed after failure. Please start the process again from the beginning.
+
+501
+
+Not Implemented
+
+Missing feature
+
+Requested feature is planned but has not been implemented yet.  
+Event edition not supported
+
+503
+
+Service Unavailable
+
+No client session - Type: "errors/no_client_session"
+
+No client session is currently running.
+
+No channel - Type: "errors/no_channel"
+
+No channel to client session.
+
+Handler missing - Type: "errors/no_handler"
+
+Handler missing for that request.
+
+Network down - Type: "errors/network_down"
+
+Network is down on server side. Please wait a moment and retry.
+
+Service unavailable - Type: "errors/service_unavailable"
+
+Please try again later.
+
+504
+
+Gateway Timeout
+
+Request timed out - Type: "errors/request_timeout"
+
+Request Timeout. Please try again, and if the issue persists, contact support.
+
+No
+
+Base URL
+
+https://api1.unipile.com:13111/api/v1/accounts/checkpoint/resend
+
+1
+
+curl \--request POST \\
+
+2
+
+     \--url https://api1.unipile.com:13111/api/v1/accounts/checkpoint/resend \\
+
+3
+
+     \--header 'accept: application/json' \\
+
+4
+
+     \--header 'content-type: application/json' \\
+
+5
+
+     \--data '
+
+6
+
+{
+
+7
+
+  "provider": "LINKEDIN"
+
+8
+
+}
+
+9
+
+'
+
+1
+
+{
+
+2
+
+  "object": "CheckpointResend",
+
+3
+
+  "account_id": "string",
+
+4
+
+  "success": true
+
+5
+
+}
+
+No
