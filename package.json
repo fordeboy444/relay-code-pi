@@ -13,6 +13,13 @@
     "url": "https://github.com/fordeboy444/relay-code-pi/issues"
   },
   "type": "module",
+  "files": [
+    "extensions",
+    "src",
+    "skills",
+    "prompts",
+    "agents"
+  ],
   "pi": {
     "extensions": [
       "./extensions",
