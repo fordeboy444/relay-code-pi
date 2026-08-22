@@ -1,8 +1,10 @@
 {
   "name": "relay-code-pi",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Pi coding agent for the Modal.com + Trigger.dev (relay-code) automation framework. Mirrors the framework's three-phase lifecycle and turns its conventions (lazy-env, schema contract, ALLOWED_TASKS sync, deploy order, secret handling) into enforced Pi tools.",
-  "keywords": ["pi-package"],
+  "keywords": [
+    "pi-package"
+  ],
   "license": "MIT",
   "author": "fordeboy444",
   "repository": {
@@ -44,7 +46,9 @@
       "node_modules/pi-subagents/prompts"
     ],
     "subagents": {
-      "agents": ["./agents"]
+      "agents": [
+        "./agents"
+      ]
     }
   },
   "dependencies": {
