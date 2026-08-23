@@ -2,12 +2,11 @@
 
 ## Environment
 
-Values in `.env` (dev) and `.env.production` (prod), both gitignored. `src/config.ts` reads these and throws on missing **required** vars.
+Values in `.env` (dev) and `.env.production` (prod), both gitignored. `src/config.ts` reads these and throws on missing **required** vars. `TRIGGER_PROJECT_ID` is **not** an env var — it lives in `trigger.config.ts` (`project:` field), read by the Trigger.dev CLI. Never pass `--project-ref` on the CLI.
 
 | Var | Required? | Notes |
 |---|---|---|
 | `TRIGGER_SECRET_KEY` | yes | dev `tr_dev_…`, prod `tr_prod_…` |
-| `TRIGGER_PROJECT_ID` | yes | the Trigger.dev project externalRef; read from `.env` / `.env.production`. Never pass `--project-ref` on the CLI — the CLI reads this same var. |
 | `AIRTABLE_TOKEN` | if using Airtable | Airtable control plane |
 | `UNIPILE_API_BASE` / `UNIPILE_API_KEY` | if using Unipile | base URL (port required) + `X-API-KEY` |
 | `GHL_PRIVATE_INTEGRATION_TOKEN` / `GHL_LOCATION_ID` | if using GoHighLevel | LeadConnector auth |

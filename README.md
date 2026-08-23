@@ -20,16 +20,17 @@ Requires [Pi](https://pi.dev) ≥ 0.80.6 (for `@narumitw/pi-goal` `agent_settled
 
 ## What it ships
 
-- **11 deterministic tools** (`extensions/relay-tools.ts`) — action tools that
+- **10 deterministic tools** (`extensions/relay-tools.ts`) — action tools that
   wrap the framework's CLIs (`relay_test`, `relay_deploy_trigger`,
   `relay_deploy_modal`, `relay_smoke_test`, `relay_dev_worker`,
-  `relay_locate_automation`, `relay_setup`) + convention-enforcing tools
+  `relay_locate_automation`) + convention-enforcing tools
   (`relay_add_task`, `relay_add_env_var`, `relay_add_schema_field`) +
   a conformance `relay_lint`. A `/plan` command toggles Plannotator plan mode.
-- **Skills** (`skills/`) — ported lifecycle orchestration
-  (`relay-brainstorm`/`relay-plan`/`relay-execute`/`relay-update`), a thin
-  `relay-arch` reference, and vendored integration API docs.
-- **Constitution** (`prompts/relay-code.md`) — always-on injection of the
+- **Skills** (`skills/`) — setup + lifecycle orchestration
+  (`relay-system-setup` / `relay-research-automation` / `relay-plan-automation` /
+  `relay-execute-or-resume-automation` / `relay-update-or-fix-automation` /
+  `relay-sub-agent-builder`) and vendored integration API docs.
+- **Constitution** (`prompts/AGENTS.md`) — always-on injection of the
   framework's security rules and deploy order every turn.
 - **6 sub-agents** (`agents/`) — gated fan-out via `pi-subagents`
   (airtable, apify, gohighlevel, modal, trigger-dev, unipile).

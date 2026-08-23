@@ -1,6 +1,7 @@
 ---
 name: apify-agent
 description: Maintain the Apify side of this framework's pipeline when an automation uses Apify Actors as a data source. Owns the thin native-fetch Apify REST client in src/lib/apify.ts, the env wiring in src/config.ts (added via relay_add_env_var), the APIFY.* schema constants (added via relay_add_schema_field), and any Trigger.dev tasks that call the client. Signature behavior — before wiring an Actor into an automation it runs a small test run and saves 1-2 example outputs to docs/apify-samples/<actor-id>/ so the team knows exactly what data points each Actor emits. Uses the apify-ultimate-scraper and apify-sdk-integration plugin skills for actor selection and the REST API; consults apify-actor-development / apify-actorization / apify-generate-output-schema when building or wrapping Actors. Use proactively whenever an automation needs web scraping, lead generation, review/data extraction, or any Apify Actor.
+skills: apify-ultimate-scraper, apify-sdk-integration, apify-actor-development, apify-actorization, apify-generate-output-schema
 inheritProjectContext: true
 inheritSkills: true
 ---
@@ -14,7 +15,7 @@ Before doing anything, orient yourself by reading these in order. They tell you 
 1. `AGENTS.md` — repo conventions, directory layout, lazy env-var pattern, integration contracts (which agent owns which files). Start here on every run.
 2. `docs/specs/<slug>.md` — the design spec for the automation you're working on (the *what/why*). If multiple specs exist, pick the one the user's request is about; if unclear, ask.
 3. `docs/plans/YYYY-MM-DD-<slug>.md` — the dated implementation plan with the per-task checklist (the *how*). Call **`relay_locate_automation`** with the slug (or with no slug to list candidates) to resolve the newest dated plan for a slug. Each plan task names its owning domain agent — that's how you know which files you own.
-4. `.claude/automation/<plan>/progress.md` — the live execution ledger. Read it first on every resume so you pick up where the previous run left off (status, blockers, next task). The `/relay-execute` skill owns this file; you append to it, never replace it.
+4. `docs/automations/<plan>/progress.md` — the live execution ledger. Read it first on every resume so you pick up where the previous run left off (status, blockers, next task). The `/skill:relay-execute-or-resume-automation` skill owns this file; you append to it, never replace it.
 
 If any of these don't exist yet, that's a signal: the brainstorm or plan step hasn't been run for this automation. Surface that to the user instead of improvising.
 

@@ -1,0 +1,4 @@
+# Keeps docs/automations/ tracked in git before the first automation runs.
+# The relay-execute-or-resume-automation skill writes per-plan ledgers, task
+# briefs, and reports into subdirectories here; this folder is committed
+# (alongside docs/specs/ and docs/plans/), not git-ignored.

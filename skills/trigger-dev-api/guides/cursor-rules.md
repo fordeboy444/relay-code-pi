@@ -17,7 +17,7 @@ Trigger.dev used to install per-tool _rule files_ (`.cursor/rules/trigger.*.mdc`
     npx trigger.dev@latest skills
     
 
-`npx trigger.dev@latest install-rules` still works as an alias, and `trigger dev` offers to install the skills on first run. The old task and realtime guidance now lives in the `trigger-authoring-tasks` and `trigger-realtime-and-frontend` skills, alongside two new skills for building `chat.agent` AI agents. See [Skills](https://trigger.dev/docs/skills)
+`npx trigger.dev@latest install-rules` still works as an alias, and `trigger dev` offers to install the skills on first run. The old task and realtime guidance now lives in the `trigger-tasks` and `trigger-realtime` skills, alongside two new skills for building `chat.agent` AI agents. See [Skills](https://trigger.dev/docs/skills)
  for the full list and supported assistants.
 
 [​](https://trigger.dev/docs/guides/cursor-rules#next-steps)

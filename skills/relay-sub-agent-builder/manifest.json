@@ -1,0 +1,52 @@
+{
+  "first_scraped": "2026-07-24T13:37:49Z",
+  "source_url": "https://code.claude.com/docs/en/agents",
+  "skill_name": "claude-code-agents",
+  "layout": "flat",
+  "page_count": 6,
+  "pages": [
+    {
+      "slug": "agents",
+      "url": "https://code.claude.com/docs/en/agents.md",
+      "file": "references/agents.md",
+      "sha256": "d1302e464c17207c93b36c41067cb829d76ef8c7d2790a50c224cd83dd10cb12",
+      "last_updated": "2026-07-24T13:52:33Z"
+    },
+    {
+      "slug": "sub-agents",
+      "url": "https://code.claude.com/docs/en/sub-agents.md",
+      "file": "references/sub-agents.md",
+      "sha256": "a3326c99ca92656f7eee1acc157a8c2b8e50c63283bfc24f4f1f03a738314071",
+      "last_updated": "2026-07-24T13:52:34Z"
+    },
+    {
+      "slug": "agent-view",
+      "url": "https://code.claude.com/docs/en/agent-view.md",
+      "file": "references/agent-view.md",
+      "sha256": "2e1fa75c3020c912f13679ad4ddab82ee792e54c552cf4a030a426c9caf27510",
+      "last_updated": "2026-07-24T13:52:34Z"
+    },
+    {
+      "slug": "agent-teams",
+      "url": "https://code.claude.com/docs/en/agent-teams.md",
+      "file": "references/agent-teams.md",
+      "sha256": "dc20e436b44f3158072c02419ff7e3475f2358af6e282aef6465e96c5f8968f5",
+      "last_updated": "2026-07-24T13:52:35Z"
+    },
+    {
+      "slug": "workflows",
+      "url": "https://code.claude.com/docs/en/workflows.md",
+      "file": "references/workflows.md",
+      "sha256": "9d7746d78b18ffce9f4ec3d36bf9c536a6320297029a377cb1a986163cbc4e63",
+      "last_updated": "2026-07-24T13:52:35Z"
+    },
+    {
+      "slug": "worktrees",
+      "url": "https://code.claude.com/docs/en/worktrees.md",
+      "file": "references/worktrees.md",
+      "sha256": "9eabc079b92891074607524180a68021996a5716d68d591f72c7f434021b7b68",
+      "last_updated": "2026-07-24T13:52:35Z"
+    }
+  ],
+  "last_updated": "2026-07-24T13:52:35Z"
+}

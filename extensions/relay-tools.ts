@@ -1,7 +1,7 @@
 // relay-code-pi — the Pi extension factory.
 //
 // One file, one default export, many pi.registerTool calls + a before_agent_start
-// handler that injects the constitution (prompts/relay-code.md) into the system
+// handler that injects the constitution (prompts/AGENTS.md) into the system
 // prompt every turn.
 //
 // Convention-enforcing tools (relay_add_*) wrap their whole read-modify-write in
@@ -30,7 +30,7 @@ export default function (pi: ExtensionAPI) {
     dirname(fileURLToPath(import.meta.url)),
     "..",
     "prompts",
-    "relay-code.md",
+    "AGENTS.md",
   );
   let constitutionCache: string | undefined;
   const getConstitution = async (): Promise<string> => {
@@ -579,104 +579,14 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  pi.registerTool({
-    name: "relay_setup",
-    label: "First-run setup",
-    description:
-      "Fill the REPLACE-ME project-identity sentinels on first run: trigger.config.ts project ref, modal_bridge.py app name, src/schema.ts BASE_ID (if baseId given), package.json name (if packageName given), and create .env / .env.production skeletons with TRIGGER_PROJECT_ID + placeholder TRIGGER_SECRET_KEY. Interactive CLI auth (trigger login, modal token new, context7) stays persona-guided — this tool does not run those.",
-    promptSnippet: "Fill REPLACE-ME project-identity sentinels on first run",
-    promptGuidelines: [
-      "Use relay_setup once on a fresh relay-code project to fill the REPLACE-ME identity sentinels before the first automation.",
-    ],
-    parameters: Type.Object({
-      projectRef: Type.String({ description: "Trigger.dev project externalRef" }),
-      appName: Type.String({ description: "Modal app name (the bridge becomes <appName>-bridge)" }),
-      baseId: Type.Optional(Type.String({ description: "Airtable base id; fills schema.ts BASE_ID" })),
-      packageName: Type.Optional(
-        Type.String({ description: "package.json name; fills the REPLACE-ME-via-system-setup sentinel" }),
-      ),
-    }),
-    async execute(_id, params, signal, _onUpdate, ctx) {
-      if (signal?.aborted) return text("Cancelled");
-      const steps: string[] = [];
-
-      // trigger.config.ts — project ref
-      const triggerCfg = proj(ctx.cwd, "trigger.config.ts");
-      await withFileMutationQueue(triggerCfg, async () => {
-        const cur = await readFile(triggerCfg, "utf8");
-        await writeFile(triggerCfg, cores.fillTriggerConfigProject(cur, params.projectRef), "utf8");
-      });
-      steps.push(`trigger.config.ts: project = "${params.projectRef}"`);
-
-      // modal_bridge.py — app name
-      const bridge = proj(ctx.cwd, "modal_bridge.py");
-      await withFileMutationQueue(bridge, async () => {
-        const cur = await readFile(bridge, "utf8");
-        await writeFile(bridge, cores.fillModalAppName(cur, params.appName), "utf8");
-      });
-      steps.push(`modal_bridge.py: App("${params.appName}-bridge")`);
-
-      // schema.ts — BASE_ID
-      if (params.baseId) {
-        const schema = proj(ctx.cwd, "src/schema.ts");
-        await withFileMutationQueue(schema, async () => {
-          const cur = await readFile(schema, "utf8");
-          await writeFile(schema, cores.fillSchemaBaseId(cur, params.baseId), "utf8");
-        });
-        steps.push(`src/schema.ts: BASE_ID = "${params.baseId}"`);
-      }
-
-      // package.json — name
-      if (params.packageName) {
-        const pkg = proj(ctx.cwd, "package.json");
-        await withFileMutationQueue(pkg, async () => {
-          const cur = await readFile(pkg, "utf8");
-          await writeFile(pkg, cores.fillPackageJsonName(cur, params.packageName), "utf8");
-        });
-        steps.push(`package.json: name = "${params.packageName}"`);
-      }
-
-      // .env / .env.production skeletons — do not overwrite existing files
-      const envPath = proj(ctx.cwd, ".env");
-      const envProdPath = proj(ctx.cwd, ".env.production");
-      const envVars = {
-        TRIGGER_PROJECT_ID: params.projectRef,
-        TRIGGER_SECRET_KEY: "tr_dev_REPLACE-ME",
-      };
-      const prodVars = {
-        TRIGGER_PROJECT_ID: params.projectRef,
-        TRIGGER_SECRET_KEY: "tr_prod_REPLACE-ME",
-      };
-      for (const [path, vars, label] of [
-        [envPath, envVars, ".env"],
-        [envProdPath, prodVars, ".env.production"],
-      ] as const) {
-        if (!existsSync(path)) {
-          await writeFile(path, cores.dotenvContent(vars), "utf8");
-          steps.push(`${label}: skeleton created (replace the tr_*_REPLACE-ME secret)`);
-        } else {
-          steps.push(`${label}: already exists — left untouched`);
-        }
-      }
-
-      return text(
-        `Setup complete:\n- ${steps.join("\n- ")}\n\n` +
-          `Remaining (persona-guided, not this tool):\n` +
-          `- run \`trigger login\` and set the real TRIGGER_SECRET_KEY in .env (tr_dev_…) and .env.production (tr_prod_…)\n` +
-          `- run \`modal token new\` to auth Modal\n` +
-          `- confirm only the secret PREFIX in chat — never the full value.`,
-      );
-    },
-  });
-
   // -------------------------------------------------------------------------
   // relay_lint — deterministic conformance checker for skill-produced specs/plans
   //
-  // An LLM-callable tool (the 11th; the user authorized expanding past the
-  // original 10 so the agent can self-check its own artifacts before handoff).
-  // Scans docs/specs/*.md and docs/plans/*.md under the project cwd and runs the
-  // pure cores (cores.lintSpec / cores.lintPlan) that mirror the rules in
-  // prompts/relay-code.md and the relay-plan / relay-execute skills. Returns the
+  // An LLM-callable tool (the 10th) so the agent can self-check its own
+  // artifacts before handoff. Scans docs/specs/*.md and docs/plans/*.md under
+  // the project cwd and runs the pure cores (cores.lintSpec / cores.lintPlan)
+  // that mirror the rules in prompts/AGENTS.md and the relay-plan / relay-execute
+  // skills. Returns the
   // findings as text so the model reads them and fixes the offending spec/plan,
   // then re-calls relay_lint until it is clean. Also writes the report to
   // .pi/relay-lint-report.md for the record.

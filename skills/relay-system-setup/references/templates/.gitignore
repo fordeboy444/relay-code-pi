@@ -1,0 +1,13 @@
+# dependencies
+node_modules/
+
+# secrets — never commit
+.env
+.env.production
+
+# Pi runtime scratch
+.pi/
+
+# build output
+dist/
+*.tsbuildinfo

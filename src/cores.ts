@@ -382,34 +382,6 @@ export function parseRunIdFromTrigger(triggerBody: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// relay_setup — fill REPLACE-ME project-identity sentinels (pure transforms)
-// ---------------------------------------------------------------------------
-
-/** `project: ""` -> `project: "<projectRef>"` in trigger.config.ts. Idempotent. */
-export function fillTriggerConfigProject(content: string, projectRef: string): string {
-  if (!content.includes('project: ""')) {
-    // already filled (or hand-edited) — leave alone
-    return content;
-  }
-  return content.replace('project: ""', `project: "${projectRef}"`);
-}
-
-/** `App("REPLACE-ME-bridge"` -> `App("<appName>-bridge"` in modal_bridge.py. Idempotent. */
-export function fillModalAppName(content: string, appName: string): string {
-  return content.replace('App("REPLACE-ME-bridge"', `App("${appName}-bridge"`);
-}
-
-/** `BASE_ID = "REPLACE-ME"` -> `BASE_ID = "<baseId>"` in schema.ts. Idempotent. */
-export function fillSchemaBaseId(content: string, baseId: string): string {
-  return content.replace('export const BASE_ID = "REPLACE-ME";', `export const BASE_ID = "${baseId}";`);
-}
-
-/** `"name": "REPLACE-ME-via-system-setup"` -> `"name": "<name>"` in package.json. Idempotent. */
-export function fillPackageJsonName(content: string, name: string): string {
-  return content.replace('"name": "REPLACE-ME-via-system-setup"', `"name": "${name}"`);
-}
-
-// ---------------------------------------------------------------------------
 // .env parsing / rendering (relay_smoke_test reads the prod secret without
 // relying on process.env being populated in the Pi process)
 // ---------------------------------------------------------------------------
@@ -435,17 +407,12 @@ export function parseDotenv(text: string): Record<string, string> {
   return out;
 }
 
-/** Render a dotenv body from an ordered vars map. */
-export function dotenvContent(vars: Record<string, string>): string {
-  return Object.entries(vars).map(([k, v]) => `${k}=${v}`).join("\n") + "\n";
-}
-
 // ---------------------------------------------------------------------------
 // relay_lint — conformance checks for skill-produced specs/plans
 //
 // The relay_lint tool (in extensions/relay-tools.ts) reads docs/specs and
 // docs/plans from the project cwd and runs these pure checks. The rules mirror
-// prompts/relay-code.md and the relay-plan / relay-execute skills: every plan
+// prompts/AGENTS.md and the relay-plan / relay-execute skills: every plan
 // carries `status` frontmatter from a closed set and an `**Agents:** <name>`
 // line per task naming only the six ported domain agents; every spec carries
 // slug/name/trigger_type/created frontmatter.

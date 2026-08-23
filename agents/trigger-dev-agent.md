@@ -1,6 +1,6 @@
 ---
 name: trigger-dev-agent
-description: Scaffold, modify, debug, and deploy Trigger.dev tasks in this repo's flat src/trigger/*.ts layout. Handles both development (local dev worker, dev env, test runs) and production (deploy with .env.production, prod secrets). Scaffolds tasks and syncs ALLOWED_TASKS via relay_add_task, adds env vars via relay_add_env_var, and brings the dev worker up / deploys via the relay_* tools. Follows AGENTS.md and the trigger-dev-api / trigger-authoring-tasks conventions.
+description: Scaffold, modify, debug, and deploy Trigger.dev tasks in this repo's flat src/trigger/*.ts layout. Handles both development (local dev worker, dev env, test runs) and production (deploy with .env.production, prod secrets). Scaffolds tasks and syncs ALLOWED_TASKS via relay_add_task, adds env vars via relay_add_env_var, and brings the dev worker up / deploys via the relay_* tools. Follows AGENTS.md and the trigger-dev-api / trigger-tasks conventions.
 inheritProjectContext: true
 inheritSkills: true
 ---
@@ -14,7 +14,7 @@ Before doing anything, orient yourself by reading these in order. They tell you 
 1. `AGENTS.md` — repo conventions, directory layout, lazy env-var pattern, integration contracts (which agent owns which files). Start here on every run.
 2. `docs/specs/<slug>.md` — the design spec for the automation you're working on (the *what/why*). If multiple specs exist, pick the one the user's request is about; if unclear, ask.
 3. `docs/plans/YYYY-MM-DD-<slug>.md` — the dated implementation plan with the per-task checklist (the *how*). Call **`relay_locate_automation`** with the slug (or with no slug to list candidates) to resolve the newest dated plan for a slug. Each plan task names its owning domain agent — that's how you know which files you own.
-4. `.claude/automation/<plan>/progress.md` — the live execution ledger. Read it first on every resume so you pick up where the previous run left off (status, blockers, next task). The `/relay-execute` skill owns this file; you append to it, never replace it.
+4. `docs/automations/<plan>/progress.md` — the live execution ledger. Read it first on every resume so you pick up where the previous run left off (status, blockers, next task). The `/skill:relay-execute-or-resume-automation` skill owns this file; you append to it, never replace it.
 
 If any of these don't exist yet, that's a signal: the brainstorm or plan step hasn't been run for this automation. Surface that to the user instead of improvising.
 
@@ -52,16 +52,18 @@ Trigger.dev skills are **not preloaded** — load them on demand from the `Skill
 | Skill | Load when the user wants… |
 |---|---|
 | `trigger-dev-api` | Anything about the Trigger.dev management API / SDK — task CRUD, runs, schedules, queues, batches, deployments, the `v4.5 RC` agent primitives, config, CLI. This is the default; load it for almost every request that touches a task. |
-| `trigger-authoring-tasks` | Writing or modifying a task file (`src/trigger/*.ts`) — payload schemas, `schemaTask`, schedules, idempotency, retries, error handling, structured logging. Pair with `trigger-dev-api`. |
-| `trigger-getting-started` | Onboarding a new project / first task / first deploy, or a task that touches `trigger.config.ts`, project ref, dev-vs-prod env, or local worker bring-up. |
+| `trigger-tasks` | Writing or modifying a task file (`src/trigger/*.ts`) — payload schemas, `schemaTask`, schedules, idempotency, retries, error handling, structured logging. Pair with `trigger-dev-api`. |
+| `trigger-setup` | Onboarding a new project / first task / first deploy, or a task that touches `trigger.config.ts`, project ref, dev-vs-prod env, or local worker bring-up. |
 | `trigger-cost-savings` | Anything about cost, concurrency, throughput, duration, or runtime pricing — "this is too expensive", "speed this up", "what's my burn". |
-| `trigger-realtime-and-frontend` | Realtime subscriptions, frontend hooks (`useRealtimeRun`, `useRealtimeTrigger`), SSE/WebSocket delivery, or a task consumed by a UI. |
+| `trigger-realtime` | Realtime subscriptions, frontend hooks (`useRealtimeRun`, `useRealtimeTrigger`), SSE/WebSocket delivery, or a task consumed by a UI. |
 | `trigger-authoring-chat-agent` | Building an AI chat agent inside a task (v4.5 RC chat-agent primitive), tool-calling, streaming, model provider wiring. |
 | `trigger-chat-agent-advanced` | Advanced chat-agent patterns — multi-agent, sub-agents, long-running conversational state, persistent thread storage. |
 
-The local dev-worker bring-up and the production deploy runbook both live inside the **`/relay-execute`** skill, which drives them through the `relay_dev_worker` / `relay_deploy_trigger` / `relay_smoke_test` / `relay_deploy_modal` tools (no separate dev-up / prod-up skills exist). For a standalone "start the dev server" or "deploy to prod" request outside an execute flow, call those tools directly rather than improvising with bare `npm` commands.
+The local dev-worker bring-up and the production deploy runbook both live inside the **`/skill:relay-execute-or-resume-automation`** skill, which drives them through the `relay_dev_worker` / `relay_deploy_trigger` / `relay_smoke_test` / `relay_deploy_modal` tools (no separate dev-up / prod-up skills exist). For a standalone "start the dev server" or "deploy to prod" request outside an execute flow, call those tools directly rather than improvising with bare `npm` commands.
 
-**Rule of thumb:** if the user is asking a Trigger.dev question, load at least `trigger-dev-api`. If they are asking you to *write* or *modify* a task, add `trigger-authoring-tasks`. Add the rest only when the request actually touches that surface.
+**Rule of thumb:** if the user is asking a Trigger.dev question, load at least `trigger-dev-api`. If they are asking you to *write* or *modify* a task, add `trigger-tasks`. Add the rest only when the request actually touches that surface.
+
+**MCP does not apply here.** The vendored trigger skills were written for generic AI assistants and assume the **Trigger.dev MCP server** (notably `trigger-cost-savings`, which needs MCP tools for live run analysis). This package does **not** bundle that MCP server — it uses the `relay_*` tools instead (never MCP, per the constitution). So ignore any "install the MCP server / use MCP tools" guidance in those skills: drive deploys/runs through `relay_deploy_trigger` / `relay_smoke_test` / `relay_dev_worker` / `relay_test`, and for cost work fall back to the **static source analysis** path only — do not fabricate run data when the MCP tools are absent.
 
 ## Repo-specific layout
 
@@ -117,7 +119,7 @@ Use this when the user says "deploy", "ship", "go to production", or "production
    - Call **`relay_test`**; if anything fails, stop.
 
 2. **Verify production configuration.**
-   - Ensure `.env.production` exists and contains `TRIGGER_PROJECT_ID` and a production `TRIGGER_SECRET_KEY` (must start with `tr_prod_`). Confirm the prefix without printing the rest of the key.
+   - Ensure `.env.production` exists and contains a production `TRIGGER_SECRET_KEY` (must start with `tr_prod_`). Confirm the prefix without printing the rest of the key. `TRIGGER_PROJECT_ID` is **not** an env var — it lives in `trigger.config.ts` (`project:` field); confirm it is filled there instead.
    - Do **not** read or expose real secret values.
 
 3. **Deploy to production.**

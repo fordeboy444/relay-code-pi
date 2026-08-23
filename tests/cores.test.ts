@@ -14,12 +14,7 @@ import {
   syncAllowedTasks,
   parseLocateOutput,
   parseRunIdFromTrigger,
-  fillTriggerConfigProject,
-  fillModalAppName,
-  fillSchemaBaseId,
-  fillPackageJsonName,
   parseDotenv,
-  dotenvContent,
   lintSpec,
   lintPlan,
   PLAN_STATUS_VALUES,
@@ -350,7 +345,7 @@ describe("parseLocateOutput — single slug", () => {
     "[locate-automation] slug: send-welcome-email",
     "spec: docs/specs/send-welcome-email.md (exists)",
     "plan: docs/plans/2026-08-22-send-welcome-email.md (status: in_progress)",
-    "ledger: .claude/automation/2026-08-22-send-welcome-email/progress.md (exists)",
+    "ledger: docs/automations/2026-08-22-send-welcome-email/progress.md (exists)",
     "progress: 2/5 tasks complete — next: Task 3",
   ].join("\n");
 
@@ -362,7 +357,7 @@ describe("parseLocateOutput — single slug", () => {
     expect(r.specExists).toBe(true);
     expect(r.planPath).toBe("docs/plans/2026-08-22-send-welcome-email.md");
     expect(r.planStatus).toBe("in_progress");
-    expect(r.ledgerPath).toBe(".claude/automation/2026-08-22-send-welcome-email/progress.md");
+    expect(r.ledgerPath).toBe("docs/automations/2026-08-22-send-welcome-email/progress.md");
     expect(r.ledgerExists).toBe(true);
     expect(r.progress).toBe("2/5 tasks complete — next: Task 3");
   });
@@ -373,7 +368,7 @@ describe("parseLocateOutput — not-found states", () => {
     "[locate-automation] slug: ghost",
     "spec: docs/specs/ghost.md (not found)",
     "plan: docs/plans/2026-08-22-ghost.md (status: planned)",
-    "ledger: .claude/automation/2026-08-22-ghost/progress.md (not found)",
+    "ledger: docs/automations/2026-08-22-ghost/progress.md (not found)",
     "progress: 0/0 tasks complete — next: (none)",
   ].join("\n");
   const r = parseLocateOutput(text);
@@ -412,49 +407,7 @@ describe("parseRunIdFromTrigger", () => {
 });
 
 // ---------------------------------------------------------------------------
-// relay_setup sentinel fillers
-// ---------------------------------------------------------------------------
-
-describe("fillTriggerConfigProject", () => {
-  const cfg = `import { defineConfig } from "@trigger.dev/sdk";
-export default defineConfig({
-  project: "",
-  dirs: ["./src/trigger"],
-});`;
-  it("fills the empty project ref", () => {
-    expect(fillTriggerConfigProject(cfg, "proj_abc")).toContain(`project: "proj_abc"`);
-  });
-  it("is idempotent (already-filled left alone)", () => {
-    const filled = fillTriggerConfigProject(cfg, "proj_abc");
-    expect(fillTriggerConfigProject(filled, "proj_other")).toBe(filled);
-  });
-});
-
-describe("fillModalAppName", () => {
-  it("replaces the REPLACE-ME bridge name", () => {
-    const py = 'app = App("REPLACE-ME-bridge", image=image)';
-    expect(fillModalAppName(py, "acme")).toBe('app = App("acme-bridge", image=image)');
-  });
-});
-
-describe("fillSchemaBaseId", () => {
-  it("replaces BASE_ID sentinel", () => {
-    const s = 'export const BASE_ID = "REPLACE-ME";';
-    expect(fillSchemaBaseId(s, "appXXXX")).toBe('export const BASE_ID = "appXXXX";');
-  });
-});
-
-describe("fillPackageJsonName", () => {
-  it("replaces the package name sentinel", () => {
-    const pj = `{ "name": "REPLACE-ME-via-system-setup", "version": "0.1.0" }`;
-    expect(fillPackageJsonName(pj, "acme-automation")).toBe(
-      `{ "name": "acme-automation", "version": "0.1.0" }`,
-    );
-  });
-});
-
-// ---------------------------------------------------------------------------
-// parseDotenv / dotenvContent
+// parseDotenv
 // ---------------------------------------------------------------------------
 
 describe("parseDotenv", () => {
@@ -474,12 +427,6 @@ describe("parseDotenv", () => {
   });
   it("ignores lines without =", () => {
     expect(parseDotenv("BOGUS\nKEY=val")).toEqual({ KEY: "val" });
-  });
-});
-
-describe("dotenvContent", () => {
-  it("renders KEY=VALUE lines", () => {
-    expect(dotenvContent({ A: "1", B: "2" })).toBe("A=1\nB=2\n");
   });
 });
 

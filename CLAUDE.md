@@ -20,7 +20,7 @@ rather than prose for the model to follow.
 npm install            # resolve the 9 Pi extension peer/deps under node_modules/
 npm test               # vitest run — pure-core unit tests (the primary gate; TS pipeline exercised here)
 npm run test:watch     # vitest watch
-pi -e .               # package-load smoke gate — expect SMOKE_OK (loads 11 tools + 9 extensions)
+pi -e .               # package-load smoke gate — expect SMOKE_OK (loads 10 tools + 8 extensions)
 pi -p "Reply with exactly SMOKE_OK and nothing else."   # full-stack host load check
 ```
 
@@ -50,7 +50,7 @@ Every convention-enforcing tool is split across two layers, and you must keep th
   params and return new content. They never touch the filesystem or the Pi runtime, so they
   unit-test with plain Vitest fixtures and **no Pi install**. Every transform (env-var getter,
   schema constant, task scaffold, `ALLOWED_TASKS` sync, locate-output parse, smoke-test
-  trigger-parse, `relay_setup` sentinel fills, dotenv parse, spec/plan lint) lives here.
+  trigger-parse, dotenv parse, spec/plan lint) lives here.
 - **`extensions/relay-tools.ts`** — one file, one default export factory, many
   `pi.registerTool` calls. Each tool's `execute` body is **thin glue**: read file → call a
   pure core → write back, all inside `withFileMutationQueue`, or shell out via `pi.exec` /
@@ -65,21 +65,23 @@ the real framework template files; tests load them and assert the transformed ou
 
 ### What the package ships
 
-- **11 tools** (registered in `extensions/relay-tools.ts`): convention-enforcers
+- **10 tools** (registered in `extensions/relay-tools.ts`): convention-enforcers
   (`relay_add_env_var`, `relay_add_schema_field`, `relay_add_task`) that mutate the project's
   `src/config.ts`, `src/schema.ts`, `modal_bridge.py`, and context-file env table; action tools
   (`relay_locate_automation`, `relay_test`, `relay_dev_worker`, `relay_deploy_trigger`,
-  `relay_smoke_test`, `relay_deploy_modal`, `relay_setup`) that shell out or fetch — **never
-  MCP**; and `relay_lint` (conformance checker the agent self-calls on its own specs/plans).
+  `relay_smoke_test`, `relay_deploy_modal`) that shell out or fetch — **never MCP**; and
+  `relay_lint` (conformance checker the agent self-calls on its own specs/plans).
   A `/plan` **command** (not a tool — does not count toward the tool set) toggles Plannotator
   plan mode via its event bus.
-- **Constitution** (`prompts/relay-code.md`) — injected into the system prompt **every turn** by
+- **Constitution** (`prompts/AGENTS.md`) — injected into the system prompt **every turn** by
   a `before_agent_start` handler. This is the always-on ruleset (tool-use rules, deploy order,
   security invariants, lifecycle conventions). If you change a rule there, it changes the
   agent's behavior on every turn.
-- **Skills** (`skills/`) — the three-phase lifecycle orchestration
-  (`relay-brainstorm` → `relay-plan` → `relay-execute`) plus `relay-update` (delta vs an existing
-  spec), `relay-arch` (file-layout/ownership quick reference), and vendored integration API docs.
+- **Skills** (`skills/`) — the setup + lifecycle orchestration
+  (`relay-system-setup` → `relay-research-automation` → `relay-plan-automation` →
+  `relay-execute-or-resume-automation`), `relay-update-or-fix-automation` (delta vs an existing
+  spec/plan), `relay-sub-agent-builder` (author new sub-agents), and vendored integration API docs
+  (Modal, Trigger.dev, Airtable, GoHighLevel, Unipile, Google, Context7, Pi).
 - **6 sub-agents** (`agents/*.md`) — gated fan-out via `pi-subagents`:
   `airtable-agent`, `apify-agent`, `gohighlevel-agent`, `modal-agent`, `trigger-dev-agent`,
   `unipile-agent`. These are the only agent names `relay_lint` accepts on a plan's `**Agents:**`
@@ -109,7 +111,9 @@ from the framework template — surface this to the user; do not patch it by han
 Pi loads a project's context as `AGENTS.override.md` → `AGENTS.md` → `CLAUDE.md` (default
 `AGENTS.md`). `relay_add_env_var` writes its env-table row into whichever of these exists
 (`cores.pickContextFile`), so it works in a scaffolded relay-code project (which ships
-`CLAUDE.md`) with no manual rename.
+`AGENTS.md`) with no manual rename. The `relay-system-setup` skill scaffolds that `AGENTS.md`
+— including its `## Environment` table and `## Project identity` block — from bundled
+templates; `TRIGGER_PROJECT_ID` lives in `trigger.config.ts` (not `.env`).
 
 ## Conventions to follow when editing this repo
 
@@ -131,6 +135,4 @@ Pi loads a project's context as `AGENTS.override.md` → `AGENTS.md` → `CLAUDE
 
 - `docs/e2e-runbook.md` — the account-gated end-to-end run (Trigger.dev + Modal + Airtable).
 - `docs/superpowers/specs/2026-08-22-relay-code-pi-design.md` — the design doc.
-- `skills/relay-arch/SKILL.md` — the file-layout & ownership matrix (which file is owned by
-  which `relay_*` tool or sub-agent); consult it when placing new code or constants.
-- `prompts/relay-code.md` — the injected constitution; the authoritative list of tool-use rules.
+- `prompts/AGENTS.md` — the injected constitution; the authoritative list of tool-use rules.
