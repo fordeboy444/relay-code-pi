@@ -1,6 +1,6 @@
 {
   "name": "relay-code-pi",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Pi coding agent for the Modal.com + Trigger.dev (relay-code) automation framework. Mirrors the framework's three-phase lifecycle and turns its conventions (lazy-env, schema contract, ALLOWED_TASKS sync, deploy order, secret handling) into enforced Pi tools.",
   "keywords": [
     "pi-package"
