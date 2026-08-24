@@ -42,15 +42,15 @@ Copy the bundled template tree from this skill's `references/templates/` directo
   | `package.json` | `package.json` |
   | `tsconfig.json` | `tsconfig.json` |
   | `prompts/AGENTS.md` | `prompts/AGENTS.md` |
-  | `.gitignore` | `.gitignore` |
-  | `.env` | `.env` |
-  | `.env.production` | `.env.production` |
+  | `.gitignore.template` | `.gitignore` |
+  | `.env.template` | `.env` |
+  | `.env.production.template` | `.env.production` |
   | `docs/specs/.gitkeep` | `docs/specs/.gitkeep` |
   | `docs/plans/.gitkeep` | `docs/plans/.gitkeep` |
   | `docs/automations/.gitkeep` | `docs/automations/.gitkeep` |
   | `scripts/locate-automation.mjs` | `scripts/locate-automation.mjs` |
 
-- For each template, `Read` it (relative to this skill: `references/templates/<path>`) and `Write` it to the same relative path under the project root, creating parent directories as needed. (Equivalently, if you can resolve this skill's absolute directory, a single `cp -r <skill>/references/templates/. <project-root>/` does it — use `Copy-Item -Recurse` on Windows.) Never overwrite an existing file; if a target already exists, leave it.
+- For each template, `Read` it (relative to this skill: `references/templates/<template>`) and `Write` it to its target path under the project root, creating parent directories as needed. For most templates the source and target names match, so a single `cp -r <skill>/references/templates/. <project-root>/` (or `Copy-Item -Recurse` on Windows) copies them in one shot — **except** the three dotfiles below, whose source carries a `.template` suffix the target drops: `Read` `.gitignore.template` → `Write` `.gitignore`; `Read` `.env.template` → `Write` `.env`; `Read` `.env.production.template` → `Write` `.env.production`. They ship under `*.template` names because npm excludes bare `.gitignore` / `.env` / `.env.production` from the published tarball (npm always drops `.gitignore`; the bundled `.gitignore.template` itself ignores `.env` / `.env.production` so it can double as the scaffolded project's `.gitignore`). Never overwrite an existing file; if a target already exists, leave it.
 - `prompts/AGENTS.md` is the **standing constitution** (tool-use rules, deploy order, security invariants, lifecycle conventions) — Pi loads it from `prompts/` into the system prompt on every turn. It carries **no project state**; per-project state lives in `docs/automations/<plan>/progress.md` (see the constitution's Standing rules).
 - `.env` and `.env.production` are scaffolded as comment-only stubs (no `KEY=value` lines yet). The user populates them via the `.env-storage` skill (Load) — this skill never writes secret values.
 
