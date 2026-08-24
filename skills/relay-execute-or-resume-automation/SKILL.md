@@ -5,7 +5,7 @@ description: Use when an approved implementation plan exists in docs/plans/ and 
 
 # /skill:relay-execute-or-resume-automation
 
-Build, continue, or retry a Modal + Trigger.dev automation from an approved plan in `docs/plans/`. This is the third phase of **brainstorm → plan → execute**. It dispatches the domain sub-agents task-by-task via **`pi-subagents`**, reviews each task's diff, runs a fix loop on failures, and tracks progress in a ledger that survives `/clear` (mirrored live by **rpiv-todo**). The integrations the automation uses are decided by the spec and plan; the relevant add-on agents self-validate when they're in scope.
+Build, continue, or retry a Modal + Trigger.dev automation from an approved plan in `docs/plans/`. This is the third phase of **research → plan → execute**. It dispatches the domain sub-agents task-by-task via **`pi-subagents`**, reviews each task's diff, runs a fix loop on failures, and tracks progress in a ledger that survives `/clear` (mirrored live by **rpiv-todo**). The integrations the automation uses are decided by the spec and plan; the relevant add-on agents self-validate when they're in scope.
 
 **Adapted from `superpowers:subagent-driven-development` (slim).** The domain agents already self-validate (trigger-dev-agent runs `relay_test` + `relay_dev_worker`, modal-agent deploys the bridge, add-on agents validate their own integration contracts), so the **controller reviews each task's diff itself** rather than dispatching a separate reviewer subagent. Keep the ledger, fix loop, per-task gates, and branch guard.
 

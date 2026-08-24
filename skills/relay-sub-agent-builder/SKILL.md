@@ -1,6 +1,6 @@
 ---
 name: relay-sub-agent-builder
-description: "Local reference for Claude Code's agent and parallel-work features — subagents, agent view (claude agents), agent teams, dynamic workflows, and git worktrees. Use this skill whenever the user asks about running multiple Claude Code sessions or workers at once, delegating work to agents, or choosing between subagents vs agent teams vs workflows vs worktrees. ALSO use this skill when the user wants to create, build, make, or set up a subagent/agent — follow the 'Creating a subagent' interview workflow in the body to gather the config with AskUserQuestion and write the definition file. Trigger on phrases like 'subagent', 'sub-agent', 'agent view', 'claude agents', 'agent team', 'teammate', 'dynamic workflow', 'use a workflow', 'ultracode', '/deep-research', 'worktree', '--worktree', 'spawn a teammate', 'parallel sessions', 'create a subagent that', 'make an agent for', 'set up a subagent to', or any Claude Code multi-agent/parallel-execution question. Load the relevant reference file(s) under references/ and answer from them — these docs change across versions, so prefer them over memory."
+description: "Local reference for Claude Code's agent and parallel-work features — subagents, agent view, agent teams, dynamic workflows, and git worktrees. Use when the user asks about delegating to agents, choosing between subagents vs teams vs workflows vs worktrees, or wants to author a new subagent (see the 'Creating a subagent' interview workflow in the body). Load the relevant reference file(s) under references/ and answer from them — these docs change across versions, so prefer them over memory."
 ---
 
 # Claude Code agents & parallel work — local docs
@@ -201,7 +201,7 @@ automation is*, *how it's supposed to be built*, and *where the live execution s
    every resume so you pick up where the previous run left off (status, blockers, next
    task). The execute skill owns this file; you append to it, never replace it.
 
-If any of these don't exist yet, that's a signal: the brainstorm or plan step hasn't been
+If any of these don't exist yet, that's a signal: the research or plan step hasn't been
 run for this automation. Surface that to the user instead of improvising.
 
 ```

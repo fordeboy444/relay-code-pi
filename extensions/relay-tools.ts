@@ -1,8 +1,8 @@
 // relay-code-pi — the Pi extension factory.
 //
-// One file, one default export, many pi.registerTool calls + a before_agent_start
-// handler that injects the constitution (prompts/AGENTS.md) into the system
-// prompt every turn.
+// One file, one default export, many pi.registerTool calls. The constitution
+// ships in the scaffolded project AGENTS.md (written by relay-system-setup)
+// and loads as project context — it is not injected by a handler here.
 //
 // Convention-enforcing tools (relay_add_*) wrap their whole read-modify-write in
 // withFileMutationQueue and delegate the actual transform to a pure core in
@@ -17,51 +17,19 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import { readFile, writeFile, mkdir, open, rm, readdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { resolve, join, dirname, basename } from "node:path";
-import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
 import * as cores from "../src/cores";
 
 export default function (pi: ExtensionAPI) {
-  // -------------------------------------------------------------------------
-  // Constitution injection
-  // -------------------------------------------------------------------------
-  const constitutionPath = resolve(
-    dirname(fileURLToPath(import.meta.url)),
-    "..",
-    "prompts",
-    "AGENTS.md",
-  );
-  let constitutionCache: string | undefined;
-  const getConstitution = async (): Promise<string> => {
-    if (constitutionCache !== undefined) return constitutionCache;
-    constitutionCache = await readFile(constitutionPath, "utf8");
-    return constitutionCache;
-  };
-
-  pi.on("before_agent_start", async (event) => {
-    try {
-      const constitution = await getConstitution();
-      return { systemPrompt: event.systemPrompt + "\n\n" + constitution };
-    } catch (e) {
-      // Fail visibly so the package-load smoke gate catches a missing/unreadable
-      // constitution instead of silently running without rules.
-      return {
-        systemPrompt:
-          event.systemPrompt +
-          `\n\n[relay-code-pi: WARNING — constitution at ${constitutionPath} could not be loaded: ${e instanceof Error ? e.message : String(e)}]`,
-      };
-    }
-  });
-
   // -------------------------------------------------------------------------
   // Shared helpers
   // -------------------------------------------------------------------------
   const proj = (cwd: string, rel: string): string => resolve(cwd, rel);
   // Pick the project context file the way Pi loads it (AGENTS.override.md →
   // AGENTS.md → CLAUDE.md, default AGENTS.md) — see cores.pickContextFile. Lets
-  // the env-table tool write to CLAUDE.md in a scaffolded relay-code project
-  // (which ships CLAUDE.md) without a manual rename.
+  // the env-table tool write to the project AGENTS.md that relay-system-setup
+  // scaffolds (which ships AGENTS.md, merged with the constitution) without a
+  // manual rename.
   const resolveContextFile = (cwd: string): string =>
     proj(cwd, cores.pickContextFile((name) => existsSync(proj(cwd, name))));
   const text = (t: string) => ({
@@ -585,7 +553,8 @@ export default function (pi: ExtensionAPI) {
   // An LLM-callable tool (the 10th) so the agent can self-check its own
   // artifacts before handoff. Scans docs/specs/*.md and docs/plans/*.md under
   // the project cwd and runs the pure cores (cores.lintSpec / cores.lintPlan)
-  // that mirror the rules in prompts/AGENTS.md and the relay-plan / relay-execute
+  // that mirror the rules in the project AGENTS.md (the constitution
+  // relay-system-setup scaffolds) and the relay-plan / relay-execute
   // skills. Returns the
   // findings as text so the model reads them and fixes the offending spec/plan,
   // then re-calls relay_lint until it is clean. Also writes the report to
@@ -653,79 +622,6 @@ export default function (pi: ExtensionAPI) {
       await writeFile(join(dotpi, "relay-lint-report.md"), report + "\n", "utf8");
 
       return text(report);
-    },
-  });
-
-  // =========================================================================
-  // /plan — short alias for Plannotator plan mode
-  // =========================================================================
-  // Pi has NO `?name=plan` runtime-config syntax on package sources. Verified
-  // three ways: the live pi.dev/docs/packages page (only @version/@ref suffixes
-  // are documented), `pi install --help` (no --name flag), and an empirical
-  // `pi -e "npm:@plannotator/pi-extension?name=plan"` — npm treats the whole
-  // string as a package name and fails with ENOENT. So the automater's `/plan`
-  // entry point is delivered as a thin COMMAND that toggles Plannotator plan
-  // mode through its documented event bus (README §"Programmatic plan-mode
-  // control"). A command does NOT count toward the 11-tool lock.
-  pi.registerCommand("plan", {
-    description:
-      "Toggle Plannotator plan mode — short alias for /plannotator-plan-mode. " +
-      "Optional arg: enter | exit | status (default: toggle).",
-    handler: async (args: string | undefined, ctx) => {
-      const arg = (args ?? "").trim().toLowerCase();
-      const mode: "enter" | "exit" | "toggle" | "status" =
-        arg === "enter" || arg === "exit" || arg === "status" ? arg : "toggle";
-
-      let channel: string;
-      try {
-        const mod = await import("@plannotator/pi-extension/plannotator-events");
-        channel = mod.PLANNOTATOR_REQUEST_CHANNEL;
-      } catch (e) {
-        ctx.ui.notify(
-          `relay-code-pi /plan: Plannotator extension not available — ` +
-            (e instanceof Error ? e.message : String(e)),
-          "error",
-        );
-        return;
-      }
-
-      // Plannotator responds via `respond`; if it isn't loaded or doesn't
-      // answer, time out so the command never hangs the TUI.
-      const response = await new Promise<{
-        status: string;
-        result?: { phase?: string };
-        error?: string;
-      }>((resolve) => {
-        let done = false;
-        const timer = setTimeout(() => {
-          if (!done) {
-            done = true;
-            resolve({ status: "unavailable", error: "timed out — is Plannotator loaded?" });
-          }
-        }, 5_000);
-        pi.events.emit(channel, {
-          requestId: randomUUID(),
-          action: "plan-mode",
-          payload: { mode },
-          respond: (r: { status: string; result?: { phase?: string }; error?: string }) => {
-            if (!done) {
-              done = true;
-              clearTimeout(timer);
-              resolve(r);
-            }
-          },
-        });
-      });
-
-      if (response.status === "handled") {
-        ctx.ui.notify(`relay-code-pi /plan: ${mode} → ${response.result?.phase ?? "ok"}`, "info");
-      } else {
-        ctx.ui.notify(
-          `relay-code-pi /plan: ${response.status}` +
-            (response.error ? ` — ${response.error}` : ""),
-          response.status === "unavailable" ? "warning" : "error",
-        );
-      }
     },
   });
 }

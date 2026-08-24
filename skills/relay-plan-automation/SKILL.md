@@ -7,7 +7,7 @@ description: Use when a design spec already exists in docs/specs/ and the user w
 
 Use this command when an automation already has an approved design spec under `docs/specs/` and the user wants a detailed, step-by-step implementation plan before any code is written.
 
-This is the second phase of the three-skill flow: **brainstorm → plan → execute**. It consumes the spec (the *what*/*why*, from `/skill:relay-research-automation`) and produces the plan (the *how*). `/skill:relay-execute-or-resume-automation` then builds it.
+This is the second phase of the three-skill flow: **research → plan → execute**. It consumes the spec (the *what*/*why*, from `/skill:relay-research-automation`) and produces the plan (the *how*). `/skill:relay-execute-or-resume-automation` then builds it.
 
 ## Input
 
@@ -111,7 +111,7 @@ Read the spec at `docs/specs/<slug>.md`. If no spec exists for the slug, stop an
    - Fix issues inline; no re-review needed.
 
 9. **Ask for approval.**
-   - Present the plan via **@plannotator** (the interactive plan review/approve/deny UI). Show the plan and spec paths. Do **not** spawn any implementation agent before approval.
+   - Present the plan to the user in chat (paste the plan + spec paths). Ask: approve, revise, or reject. Do **not** spawn any implementation agent before approval.
 
 10. **Self-check conformance, then hand off.** Once approved, set plan `status: planned`. Call **`relay_lint`** and confirm it is clean — it checks the plan's `status` frontmatter, that every `**Agents:**` line names only the six ported agents, and that the spec has `slug`/`name`/`trigger_type`/`created` frontmatter. Fix every error it reports (edit the named file), then re-call `relay_lint` until clean. Do **not** auto-invoke the next skill. Stop and tell the user:
     > The plan is written to `docs/plans/YYYY-MM-DD-<slug>.md`. Run `/clear` to clear the context, then run `/skill:relay-execute-or-resume-automation <slug>` to start (or resume) the implementation. Execute writes and tests the Trigger.dev task against the **local dev worker** (it calls `relay_dev_worker up` itself); when all tasks are done, execute deploys to production via `relay_deploy_trigger` → `relay_smoke_test` → `relay_deploy_modal`.
@@ -127,5 +127,5 @@ Any new sub-agent identified in step 4 is authored under `.claude/agents/<name>.
 - Never write real secret values into plans. Confirm prefixes only.
 - No placeholders — every step contains the actual content an implementer needs (real test code, real implementation, real commands).
 - Each task names the domain agent (or sequential agent chain) that will implement it.
-- Always pause for explicit user approval (via @plannotator) before handing off to `/skill:relay-execute-or-resume-automation`.
+- Always pause for explicit user approval in chat before handing off to `/skill:relay-execute-or-resume-automation`.
 - If a plan with the same slug already exists, ask whether to overwrite, create a new version, or open the existing one.

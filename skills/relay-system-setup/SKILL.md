@@ -8,7 +8,7 @@ description: First-run setup for a relay-code automation repo (Modal.com + Trigg
 First-run setup for a relay-code automation repo. One skill, four parts in sequence:
 
 - **Part 0 — Scaffold.** If the repo is empty/new, populate it from the bundled template tree.
-- **Part A — Install + authenticate** the three CLIs (Trigger.dev, Modal, Context7).
+- **Part A — Configure + verify + sign in.** Configure pi-secret-mask, verify all three CLIs (Trigger.dev, Modal, Context7) are installed, then sign in headless in order **context7 → modal → trigger.dev**.
 - **Part B — Capture project identity + core secrets** and write the files. Secrets are collected with the `request_secret` tool (pi-secret-mask) so the model only ever sees `__SECRET_*__` placeholders — never real values.
 - **Part C — Refresh** the Trigger.dev + Modal CLIs and pinned `@trigger.dev/*` SDKs to their latest patch versions.
 
@@ -50,15 +50,33 @@ After scaffolding, proceed to Part A.
 
 ---
 
-## Part A — Install + authenticate the CLIs
+## Part A — Configure pi-secret-mask, verify the CLIs, then sign in (context7 → modal → trigger.dev)
 
-1. **Trigger.dev CLI** — `npm install -g trigger.dev@latest`; verify `trigger --version`.
-2. **Authenticate Trigger.dev** — `trigger login` (opens a browser; if the harness cannot show it, instruct the user to complete it manually and report back).
-3. **Modal CLI** — `python -m pip install --upgrade "modal>=1.5,<2.0"`; verify `python -m modal --version`.
-4. **Authenticate Modal** — `modal setup` (browser; user completes manually if needed); capture the Modal username with `python -m modal profile current`.
-5. **Context7 CLI** — install the `ctx7` CLI per the `context7-cli` skill (run `npx -y ctx7 --help` first to confirm the install command — it may be `npm install -g ctx7`); authenticate if the skill requires it. Context7 is the preferred doc source over web search.
+Order matters: pi-secret-mask must be configured before any `request_secret` call (so its timeout guard is armed and `allowCommands` lets the CLIs the skill shells out to through), and the three CLIs must be present before sign-in. Sign-in order is **context7 → modal → trigger.dev** (headless where a flag exists).
 
-If any CLI is already installed and authenticated, skip its step (verify with the `--version` / `profile current` check) and report it as already set up.
+1. **Configure pi-secret-mask (do this first).** This package patches `request_secret` with a ~120s timeout guard (via `patch-package` in its `prepare` step) so the tool can never hang the TUI; the config below makes that guard effective and lets `mode:"ask"` permit the setup CLIs. Copy this skill's template `references/templates/pi-secret-mask.config.json` to the **user-config path** `~/.pi/agent/extensions/pi-secret-mask/config.json` (highest precedence — survives `pi update`; create the directory if missing). On Windows the home is `%USERPROFILE%` (e.g. `C:\Users\…`); on macOS/Linux `$HOME`. Use `Copy-Item -Recurse` (Windows) or `mkdir -p ~/.pi/agent/extensions/pi-secret-mask && cp …/pi-secret-mask.config.json ~/.pi/agent/extensions/pi-secret-mask/config.json` (POSIX). The template sets `mode:"ask"`, dotenv files `[".env",".env.local",".env.production",".env.development"]`, built-in patterns on except `base64`, and `allowCommands:["modal","trigger","npx","npm","node","ctx7"]` — so the skill's own bash like `modal token set --token-id __SECRET_MODAL_TOKEN_ID__ …` is not blocked by `mode:"ask"` (relay action tools are unaffected; they read real values from the on-disk `.env`). If a config already exists there, leave it. Config changes take effect on the next tool call — no restart needed.
+
+2. **Verify all three CLIs are installed — this is the main gate.** For each, check the `--version`; if missing, install it. Report which were already present vs newly installed. Do not proceed to sign-in until all three report a version:
+   - **Trigger.dev:** `trigger --version`; install `npm install -g trigger.dev@latest`.
+   - **Modal:** `python -m modal --version`; install `python -m pip install --upgrade "modal>=1.5,<2.0"`.
+   - **Context7:** `ctx7 --version`; install `npm install -g ctx7@latest`. (Context7 is the preferred doc source over web search.)
+
+3. **Sign in Context7 (headless — no local browser needed).** Run `ctx7 login --no-browser`. It prints a URL; the user opens it on any device (phone, another machine) and the CLI polls until authenticated. Verify with `ctx7 whoami`. Fallback if headless is unavailable or the user prefers a key: set `CONTEXT7_API_KEY` (from the Context7 dashboard) as an env var instead of the OAuth login, then verify with `ctx7 whoami`.
+
+4. **Sign in Modal (headless via `modal token set`).** Capture the two Modal credentials with `request_secret` — **only if a `__SECRET_MODAL_TOKEN_ID__` placeholder is not already registered** (pi-secret-mask auto-registers values found in `.env`, so on a re-run where `.env` already holds them, skip the request and reuse the existing placeholders). Otherwise call:
+   ```
+   request_secret({ name: "MODAL_TOKEN_ID", purpose: "Modal token id (starts with ak-)" })
+   request_secret({ name: "MODAL_TOKEN_SECRET", purpose: "Modal token secret (starts with as-)" })
+   ```
+   The user pastes from modal.com → Settings → API Tokens; you only ever see the placeholders `__SECRET_MODAL_TOKEN_ID__` / `__SECRET_MODAL_TOKEN_SECRET__`. **Remember both** — Part B step 5/6 reuses them for the `.env` write (single capture site, no double-prompt). Then sign in headless:
+   ```
+   modal token set --token-id __SECRET_MODAL_TOKEN_ID__ --token-secret __SECRET_MODAL_TOKEN_SECRET__
+   ```
+   pi-secret-mask substitutes the real values into the bash command (`allowCommands` permits `modal`) and masks them again in output. Verify with `python -m modal profile current` and capture the Modal username (Part B step 14 writes it to the `AGENTS.md` identity block). Fallback if `modal token set` fails: `modal setup` (opens a browser — user completes manually if the harness can't show one).
+
+5. **Sign in Trigger.dev.** Run `trigger login`. There is no headless flag — it opens a browser. If the harness cannot show a browser, instruct the user to complete the login in their browser and report back; verify you are authenticated by running an authenticated subcommand (`trigger projects list`, or `trigger whoami` if the CLI supports it). Alternative non-interactive path: set `TRIGGER_ACCESS_TOKEN` (from the Trigger.dev dashboard → API Keys) as an env var, which `trigger` reads without a login flow.
+
+If any sign-in is already complete, skip that step and report it as already authenticated.
 
 ---
 
@@ -100,13 +118,13 @@ Per-automation required env vars for any other service (`UNIPILE_*`, `APIFY_TOKE
    ```
    Returns `__SECRET_TRIGGER_SECRET_KEY_PROD__`. **`.env.production` is also read by the Modal bridge** via `Secret.from_dotenv(__file__, filename=".env.production")` — never put the dev key here, or dispatches hit the empty dev env and every run crashes with `TASK_PROCESS_EXITED_WITH_NON_ZERO_CODE`.
 
-5. **Modal token id** (`request_secret`) — only if `.env` has no `MODAL_TOKEN_ID=` line. Call:
+5. **Modal token id** (`request_secret`) — only if `.env` has no `MODAL_TOKEN_ID=` line **and** Part A step 4 did not already capture it. If Part A already captured `__SECRET_MODAL_TOKEN_ID__` (it ran `modal token set`), **skip this `request_secret` call and reuse that placeholder** — single capture site, no double-prompt. Otherwise call:
    ```
    request_secret({ name: "MODAL_TOKEN_ID", purpose: "Modal token id (starts with ak-)" })
    ```
    Returns `__SECRET_MODAL_TOKEN_ID__`.
 
-6. **Modal token secret** (`request_secret`) — only if `.env` has no `MODAL_TOKEN_SECRET=` line. Call:
+6. **Modal token secret** (`request_secret`) — only if `.env` has no `MODAL_TOKEN_SECRET=` line **and** Part A step 4 did not already capture it. If Part A already captured `__SECRET_MODAL_TOKEN_SECRET__`, **reuse it** — do not prompt again. Otherwise call:
    ```
    request_secret({ name: "MODAL_TOKEN_SECRET", purpose: "Modal token secret (starts with as-)" })
    ```
@@ -212,7 +230,7 @@ Print, in this order:
 
 - **Secrets are captured with `request_secret` (pi-secret-mask).** The model never sees real values — only `__SECRET_*__` placeholders. Use the placeholder verbatim in `Edit`/`Write` inputs; pi-secret-mask substitutes the real value onto disk and masks it again in tool output. Never invent a placeholder name; never request the same secret twice.
 - Never echo a secret value back to the user (only prefixes, and only when a value was shown to you — with `request_secret` it is not).
-- Never run `modal deploy` — the URL is back-filled in `CLAUDE.md` after the first deploy.
+- Never run `modal deploy` — the URL is back-filled in the `AGENTS.md` Project identity block after the first deploy.
 - Never write real secrets into committed files — `.env` and `.env.production` are gitignored.
 - `TRIGGER_PROJECT_ID` is written to `trigger.config.ts` **only** — never to `.env` or `.env.production`.
 - Never overwrite an existing value in `.env` / `.env.production` / `trigger.config.ts` / `modal_bridge.py` / `package.json` / `src/schema.ts`. Sentinel-detect, ask (or `request_secret`), then targeted `Edit`.

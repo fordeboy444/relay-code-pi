@@ -112,7 +112,8 @@ export function addEnvVarToConfig(content: string, p: AddEnvVarParams): AddEnvVa
 /** Pi loads the project context file as `AGENTS.override.md` → `AGENTS.md` →
  * `CLAUDE.md` (skills/pi-api: "Pi loads AGENTS.md or CLAUDE.md"). The env-table
  * tool must write to whichever of these the project actually uses, so it works
- * in a scaffolded relay-code project (which ships CLAUDE.md) without a manual
+ * in a scaffolded relay-code project (which ships AGENTS.md, merged with the
+ * constitution by relay-system-setup) without a manual
  * rename. `pickContextFile` encodes that precedence; pass an existence check. */
 export const CONTEXT_FILE_PRECEDENCE = ["AGENTS.override.md", "AGENTS.md", "CLAUDE.md"] as const;
 export const DEFAULT_CONTEXT_FILE = "AGENTS.md";
@@ -412,7 +413,8 @@ export function parseDotenv(text: string): Record<string, string> {
 //
 // The relay_lint tool (in extensions/relay-tools.ts) reads docs/specs and
 // docs/plans from the project cwd and runs these pure checks. The rules mirror
-// prompts/AGENTS.md and the relay-plan / relay-execute skills: every plan
+// the project AGENTS.md (the constitution relay-system-setup scaffolds) and
+// the relay-plan / relay-execute skills: every plan
 // carries `status` frontmatter from a closed set and an `**Agents:** <name>`
 // line per task naming only the six ported domain agents; every spec carries
 // slug/name/trigger_type/created frontmatter.

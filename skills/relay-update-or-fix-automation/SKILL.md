@@ -1,13 +1,13 @@
 ---
 name: relay-update-or-fix-automation
-description: Use when an existing automation needs a behavior or code change — adding a column, swapping an actor id, changing dedupe logic, splitting a task, retitling output, etc. Triggers on "/skill:relay-update-or-fix-automation <slug>", "update the <x> automation", "change the dedupe on <x>", "swap the actor id for <x>", "add a column to <x>", "extend <x>" followed by a behavior change. Do NOT use for brand-new automations (use /skill:relay-research-automation first), small typo / cosmetic / comment edits (just make them and call relay_test), pure spec-text edits with no code change (edit docs/specs/<slug>.md directly), or operational requests like deploy / dev-server-up (use the runbooks inside /skill:relay-execute-or-resume-automation). Locates the parent spec, frames the follow-up plan as a delta against it (a verbatim ## Spec block + a required "Spec — fold this change in" terminal task), dispatches via /skill:relay-plan-automation + /skill:relay-execute-or-resume-automation, and verifies the parent spec was actually updated before declaring success.
+description: Use when an existing automation needs a behavior or code change — adding a column, swapping an actor id, changing dedupe logic, splitting a task, retitling output, etc. Triggers on /skill:relay-update-or-fix-automation <slug>. Do NOT use for brand-new automations (use /skill:relay-research-automation first), small typo / cosmetic / comment edits (just make them and call relay_test), pure spec-text edits with no code change (edit docs/specs/<slug>.md directly), or operational requests like deploy / dev-server-up (use the runbooks inside /skill:relay-execute-or-resume-automation).
 ---
 
 # /skill:relay-update-or-fix-automation
 
 > **Naming note.** This skill delegates to `/skill:relay-execute-or-resume-automation` (the registered execute skill). Use the long names everywhere.
 
-Use this command when an automation already shipped, has a spec at `docs/specs/<slug>.md`, and now needs a **behavior or code change**. It is the update-side twin of the **brainstorm → plan → execute** lifecycle: it does not write a new spec, it does not design from scratch, and it does not own the dispatch loop. It owns only what is genuinely different for an update — locating the parent spec, framing the follow-up plan as a delta against that spec, requiring a "fold changes into the parent spec" terminal task, and verifying that the parent spec was actually edited.
+Use this command when an automation already shipped, has a spec at `docs/specs/<slug>.md`, and now needs a **behavior or code change**. It is the update-side twin of the **research → plan → execute** lifecycle: it does not write a new spec, it does not design from scratch, and it does not own the dispatch loop. It owns only what is genuinely different for an update — locating the parent spec, framing the follow-up plan as a delta against that spec, requiring a "fold changes into the parent spec" terminal task, and verifying that the parent spec was actually edited.
 
 This skill delegates to two existing skills for the heavy lifting:
 
@@ -139,7 +139,7 @@ apify-agent for lib-client, trigger-dev-agent for orchestration/trigger>
 
 ### 6. Ask the user to approve.
 
-`/skill:relay-plan-automation` already enforces an approval gate (via @plannotator). Do not bypass it. This skill simply waits for the plan to be approved before continuing to step 7.
+`/skill:relay-plan-automation` already enforces an approval gate (the user reviews the plan in chat before continuing). Do not bypass it. This skill simply waits for the plan to be approved before continuing to step 7.
 
 ### 7. Hand off to `/skill:relay-execute-or-resume-automation`.
 

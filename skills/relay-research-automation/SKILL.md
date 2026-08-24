@@ -7,7 +7,7 @@ description: Use when the user wants to design or spec a new Modal + Trigger.dev
 
 Use this command when the user wants to explore a new Modal + Trigger.dev automation and review a written design spec before any code is written. The framework's core is Modal + Trigger.dev; **which integrations the automation uses** (Airtable, GoHighLevel, Unipile, custom webhook sources, or none) is decided per-automation by this skill.
 
-This is the first phase of the three-skill flow: **brainstorm → plan → execute**. It produces the *what* and *why* (the spec). `/skill:relay-plan-automation` then produces the *how* (the plan); `/skill:relay-execute-or-resume-automation` builds it.
+This is the first phase of the three-skill flow: **research → plan → execute**. It produces the *what* and *why* (the spec). `/skill:relay-plan-automation` then produces the *how* (the plan); `/skill:relay-execute-or-resume-automation` builds it.
 
 ## Input
 
@@ -123,11 +123,11 @@ The user should describe the automation they have in mind. If they only typed `/
 
 ## Sub-agent creation rule
 
-Any new sub-agent created during brainstorm is authored under `.claude/agents/<name>.md` with the Input / Workflow / Rules structure of the existing agents, and **must have `context7-cli` appended to its `skills:` frontmatter** so it fetches official documentation via Context7 instead of web search. Domain doc-skills can be added alongside it. Matches the framework's doc-lookup order: local skill → context7-cli → web search — never training data.
+Any new sub-agent created during the research phase is authored under `.claude/agents/<name>.md` with the Input / Workflow / Rules structure of the existing agents, and **must have `context7-cli` appended to its `skills:` frontmatter** so it fetches official documentation via Context7 instead of web search. Domain doc-skills can be added alongside it. Matches the framework's doc-lookup order: local skill → context7-cli → web search — never training data.
 
 ## Guardrails
 
-- **HARD-GATE:** never write application code (`src/*`, `modal_bridge.py`, `scripts/*`) during brainstorm — only the spec. The convention files (`src/config.ts`, `src/schema.ts`, `modal_bridge.py`, `src/trigger/*.ts`) are mutated **only** by the `relay_add_*` tools during `/skill:relay-execute-or-resume-automation` — never hand-edit them.
+- **HARD-GATE:** never write application code (`src/*`, `modal_bridge.py`, `scripts/*`) during the research phase — only the spec. The convention files (`src/config.ts`, `src/schema.ts`, `modal_bridge.py`, `src/trigger/*.ts`) are mutated **only** by the `relay_add_*` tools during `/skill:relay-execute-or-resume-automation` — never hand-edit them.
 - Never write real secret values into the spec. Confirm only prefixes (`tr_dev_…`, `tr_prod_…`, `ak-…`, `as-…`).
 - Ask one clarifying question at a time; do not dump a form.
 - If a spec with the same slug already exists, ask whether to overwrite, create a new version, or open the existing one.

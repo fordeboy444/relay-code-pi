@@ -4,7 +4,7 @@ A [Pi](https://pi.dev) coding-agent package for the
 [relay-code](https://github.com/fordeboy444/relay-code) automation framework
 — Modal.com + Trigger.dev. It lets a non-expert "automater" build and deploy
 production-ready automations end-to-end by mirroring the framework's three-phase
-lifecycle (brainstorm → plan → execute) and turning its conventions
+lifecycle (research → plan → execute) and turning its conventions
 (lazy-env pattern, schema contract, `ALLOWED_TASKS` sync, deploy order, secret
 handling) from advisory prose into **enforced, deterministic Pi tools**.
 
@@ -30,8 +30,9 @@ Requires [Pi](https://pi.dev) ≥ 0.80.6 (for `@narumitw/pi-goal` `agent_settled
   (`relay-system-setup` / `relay-research-automation` / `relay-plan-automation` /
   `relay-execute-or-resume-automation` / `relay-update-or-fix-automation` /
   `relay-sub-agent-builder`) and vendored integration API docs.
-- **Constitution** (`prompts/AGENTS.md`) — always-on injection of the
-  framework's security rules and deploy order every turn.
+- **Constitution** — the framework's security rules and deploy order, scaffolded by
+  `relay-system-setup` as the project-root `AGENTS.md` (merged with the project's
+  Environment + Project identity) so Pi loads it as context every turn.
 - **6 sub-agents** (`agents/`) — gated fan-out via `pi-subagents`
   (airtable, apify, gohighlevel, modal, trigger-dev, unipile).
 
