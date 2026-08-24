@@ -3,7 +3,7 @@ name: relay-system-setup
 description: First-run setup for a relay-code automation repo (Modal.com + Trigger.dev). Scaffolds a brand-new or empty repo from bundled template files, then installs/authenticates the Trigger.dev, Modal, and Context7 CLIs, captures the project identity (cleartext identifiers only — never secrets), writes them into `trigger.config.ts`, `modal_bridge.py`, `package.json`, `src/schema.ts`, and `prompts/AGENTS.md`, and refreshes the Trigger.dev + Modal CLIs and pinned `@trigger.dev/*` SDKs to their latest patch versions. Secrets are NOT captured here — the user loads them into `.env` / `.env.production` via the `.env-storage` skill before running this. Run once on a fresh repo; re-run Part C any time to refresh tooling. TRIGGER_PROJECT_ID is written to `trigger.config.ts` only (not `.env`/`.env.production`). Service-specific secrets (Airtable, Unipile, Apify, GHL, Notion, Buffer, Serper, Exa, Instantly, etc.) are NOT captured here — their owning agents add them when an automation actually uses the service.
 ---
 
-# /system-setup
+# relay-system-setup
 
 First-run setup for a relay-code automation repo. One skill, four parts in sequence:
 

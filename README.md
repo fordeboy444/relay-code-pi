@@ -11,7 +11,7 @@ handling) from advisory prose into **enforced, deterministic Pi tools**.
 ## Install
 
 ```sh
-pi install npm:relay-code-pi        # from the npm gallery
+pi install npm:relay-code-pi@latest  # from the npm gallery
 # or, project-local from a checkout:
 pi install -l ./relay-code-pi
 ```

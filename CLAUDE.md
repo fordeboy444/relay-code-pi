@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this repository is
 
 `relay-code-pi` is a **Pi coding-agent package** — an extension bundle installed into the
-[Pi](https://pi.dev) agent (`pi install npm:relay-code-pi` or `pi install -l ./relay-code-pi`)
+[Pi](https://pi.dev) agent (`pi install npm:relay-code-pi@latest` or `pi install -l ./relay-code-pi`)
 to help a non-expert build and deploy **relay-code** automations (Modal.com + Trigger.dev).
 It is *not* a standalone app and *not* an automation project itself; it ships the tools, skills,
 agents, and constitution that Pi uses *inside* a relay-code project's working directory.
