@@ -33,7 +33,8 @@
       "node_modules/@juicesharp/rpiv-ask-user-question/index.ts",
       "node_modules/@juicesharp/rpiv-todo/index.ts",
       "node_modules/@plannotator/pi-extension",
-      "node_modules/@narumitw/pi-goal/dist/index.ts"
+      "node_modules/@narumitw/pi-goal/dist/index.ts",
+      "node_modules/pi-context-usage/src/index.ts"
     ],
     "skills": [
       "./skills",
@@ -57,7 +58,8 @@
     "@juicesharp/rpiv-ask-user-question": "^2.7.0",
     "@juicesharp/rpiv-todo": "^2.7.0",
     "@plannotator/pi-extension": "^0.27.6",
-    "@narumitw/pi-goal": "^0.52.3"
+    "@narumitw/pi-goal": "^0.52.3",
+    "pi-context-usage": "^1.0.2"
   },
   "bundledDependencies": [
     "pi-subagents",
@@ -67,7 +69,8 @@
     "@juicesharp/rpiv-ask-user-question",
     "@juicesharp/rpiv-todo",
     "@plannotator/pi-extension",
-    "@narumitw/pi-goal"
+    "@narumitw/pi-goal",
+    "pi-context-usage"
   ],
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
