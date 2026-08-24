@@ -244,17 +244,17 @@ export default function (pi: ExtensionAPI) {
           `locate-automation failed (exit ${res.code}):\n${tail(res.stderr || res.stdout)}`,
         );
       }
-      const lines = [
-        parsed.listMode
-          ? res.stdout.trim()
-          : [
-              `slug: ${parsed.slug ?? "?"}`,
-              `spec: ${parsed.specPath ?? "?"} (${parsed.specExists ? "exists" : "not found"})`,
-              `plan: ${parsed.planPath ?? "?"} (status: ${parsed.planStatus ?? "?"})`,
-              `ledger: ${parsed.ledgerPath ?? "?"} (${parsed.ledgerExists ? "exists" : "not found"})`,
-              `progress: ${parsed.progress ?? "?"}`,
-            ].join("\n"),
-      ];
+      const body = parsed.listMode
+        ? res.stdout.trim()
+        : [
+            `slug: ${parsed.slug ?? "?"}`,
+            `spec: ${parsed.specPath ?? "?"} (${parsed.specExists ? "exists" : "not found"})`,
+            `plan: ${parsed.planPath ?? "?"} (status: ${parsed.planStatus ?? "?"})`,
+            `ledger: ${parsed.ledgerPath ?? "?"} (${parsed.ledgerExists ? "exists" : "not found"})`,
+            `progress: ${parsed.progress ?? "?"}`,
+          ].join("\n");
+      // The banner is the canonical progress signal — keep it as the first line.
+      const lines = parsed.progressBanner ? [parsed.progressBanner, body] : [body];
       return text(lines.join("\n"));
     },
   });

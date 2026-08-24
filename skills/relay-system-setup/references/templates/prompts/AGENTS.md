@@ -2,9 +2,19 @@
 
 You are driving the **relay-code** framework: Modal.com + Trigger.dev automations built
 through a three-phase lifecycle (research → plan → execute). This file is the project's
-`AGENTS.md` — it carries the **tool-enforced rules** and tells you which Pi tools to call
-instead of hand-editing files. Project-specific context (Environment, Project identity,
-Automations) is appended below.
+standing constitution — the **tool-enforced rules** and conventions that hold across every
+automation. Pi loads it from `prompts/` into the system prompt on every turn, so it stays
+constant. Project-specific state is never stored here; it lives in the per-plan progress
+ledger (see Standing rules).
+
+## Standing rules
+
+- **Project state lives in `docs/automations/<plan>/progress.md`, not here.** Before
+  starting any task on a relay-code automation, call `relay_locate_automation` and read
+  its first line — the progress banner — to learn where the automation currently stands.
+  Do not re-dispatch tasks already marked complete. Update the progress ledger whenever
+  you make meaningful progress. The constitution itself is stable across projects;
+  progress is not.
 
 ## Use the tools — do not hand-edit these files
 
@@ -16,8 +26,8 @@ user rather than patching it by hand.
 
 - `relay_add_env_var` — adds an env var to `src/config.ts` in the lazy-env pattern
   (memoised getter for required vars; inline `process.env.X ?? "default"` for
-  optional) and adds a row to the `## Environment` table in this file. Call this
-  whenever an automation introduces a new env var (API keys, base URLs, etc.).
+  optional). Call this whenever an automation introduces a new env var (API keys,
+  base URLs, etc.).
 - `relay_add_schema_field` — adds a constant to a namespaced `as const` block in
   `src/schema.ts` (`F`, `TABLE`, `GHL`, `UNIPILE`, `APIFY`). Call this for every
   new field name, table id, or integration constant. This adds the **constant only**;
@@ -32,7 +42,8 @@ user rather than patching it by hand.
 ## Action tools (wrap CLIs / framework scripts — never MCP)
 
 - `relay_locate_automation` — resolve an automation's spec/plan/ledger/progress
-  (or list all). Call this first when resuming work after `/clear`.
+  (or list all). Call this first when resuming work after `/clear`. Its first line
+  of output is the canonical progress signal.
 - `relay_test` — run `npm test` (the primary quality gate; TS type errors surface here).
 - `relay_dev_worker` — bring the local Trigger.dev dev worker `up` / check `status` /
   take it `down`. Bring it up before exercising a task locally.
@@ -56,8 +67,10 @@ user rather than patching it by hand.
 Never reverse this order. The Modal bridge must read `.env.production` (prod), never
 `.env` (dev) — otherwise dispatches hit the empty dev env and every run crashes.
 
-## Security invariants (also enforced by the `pi-secret-mask` hook)
+## Security invariants
 
+- Secret values live in `.env` / `.env.production` only, written by the `.env-storage`
+  skill. The agent never types a secret value into a tool input.
 - Never pass `--project-ref` on the Trigger.dev CLI — it reads `TRIGGER_PROJECT_ID`.
 - `TRIGGER_PROJECT_ID` lives in `trigger.config.ts` (`project:` field), **not** `.env` or
   `.env.production` — the Trigger.dev CLI reads it from there. The `relay-system-setup`
@@ -92,8 +105,8 @@ Six relay-code skills drive the lifecycle, each invoked as `/skill:<name>` (args
 the command are passed to the skill):
 
 - `relay-system-setup` — first run: scaffold an empty repo from bundled templates,
-  capture secrets via `request_secret` (the model never sees values), and write
-  `TRIGGER_PROJECT_ID` into `trigger.config.ts`.
+  capture the project identity, and write `TRIGGER_PROJECT_ID` into `trigger.config.ts`.
+  Secrets are loaded via the `.env-storage` skill, never typed by the agent.
 - `relay-research-automation` — Phase 1 (research): explore the automation and write
   `docs/specs/<slug>.md` (no code).
 - `relay-plan-automation` — Phase 2 (plan): write `docs/plans/YYYY-MM-DD-<slug>.md`
@@ -118,46 +131,3 @@ a plan's `**Agents:**` line must be one of these — `relay_lint` rejects anythi
 - `apify-agent` — Apify scrapers / actors.
 - `gohighlevel-agent` — GoHighLevel CRM.
 - `unipile-agent` — Unipile integration.
-
----
-
-## Environment
-
-Values in `.env` (dev) and `.env.production` (prod), both gitignored. `src/config.ts` reads these and throws on missing **required** vars. `TRIGGER_PROJECT_ID` is **not** an env var — it lives in `trigger.config.ts` (`project:` field), read by the Trigger.dev CLI. Never pass `--project-ref` on the CLI.
-
-| Var | Required? | Notes |
-|---|---|---|
-| `TRIGGER_SECRET_KEY` | yes | dev `tr_dev_…`, prod `tr_prod_…` |
-| `MODAL_TOKEN_ID` | yes | Modal token id `ak-…` (CLI auth + bridge) |
-| `MODAL_TOKEN_SECRET` | yes | Modal token secret `as-…` (CLI auth + bridge) |
-| `AIRTABLE_TOKEN` | if using Airtable | Airtable control plane |
-| `UNIPILE_API_BASE` / `UNIPILE_API_KEY` | if using Unipile | base URL (port required) + `X-API-KEY` |
-| `GHL_PRIVATE_INTEGRATION_TOKEN` / `GHL_LOCATION_ID` | if using GoHighLevel | LeadConnector auth |
-| `APIFY_TOKEN` | if using Apify | Apify REST API |
-| `TRIGGER_BASE_URL` | no | Modal bridge only; default `https://api.trigger.dev` |
-
-`.env` may also carry LLM keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, etc.) and any other service secret — added via `relay_add_env_var` when an automation introduces them. Secret values are captured with `request_secret` (pi-secret-mask) so the model never sees them.
-
-## Project identity
-
-- **Automation name:** REPLACE-ME-via-system-setup
-- **Trigger.dev project ref:** set in `trigger.config.ts` (`project:` field)
-- **Modal app name:** REPLACE-ME-bridge
-- **Modal username:** REPLACE-ME
-- **Modal bridge URL:** to be filled after first `modal deploy modal_bridge.py`
-
-### Automations
-
-<!-- Per-automation context is appended here by /skill:relay-execute-or-resume-automation
-     when an automation finishes. Do not delete existing entries. Template:
-
-### <slug>
-- Task id(s): <ids>
-- Trigger type: <cron | schedule | http | schema>
-- Source → destination: <source> → <destination>
-- Required env vars: <names only>
-- Integration contracts: <which agents own which files>
-- Modal bridge: <task id> in ALLOWED_TASKS, recordId <yes/no>
-- Status: <planned | in_progress | paused | completed>
-- Notes: <…>
--->

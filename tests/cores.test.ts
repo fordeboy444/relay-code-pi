@@ -342,6 +342,7 @@ describe("addToPySet — anchor error", () => {
 
 describe("parseLocateOutput — single slug", () => {
   const text = [
+    "⚠️ AUTOMATION IN PROGRESS — slug: send-welcome-email, 2/5 tasks complete. Resume at Task 3. Do not re-dispatch completed tasks. For full details read docs/automations/2026-08-22-send-welcome-email/progress.md.",
     "[locate-automation] slug: send-welcome-email",
     "spec: docs/specs/send-welcome-email.md (exists)",
     "plan: docs/plans/2026-08-22-send-welcome-email.md (status: in_progress)",
@@ -361,10 +362,16 @@ describe("parseLocateOutput — single slug", () => {
     expect(r.ledgerExists).toBe(true);
     expect(r.progress).toBe("2/5 tasks complete — next: Task 3");
   });
+  it("captures the in-progress banner as the first line", () => {
+    expect(r.progressBanner).toBe(
+      "⚠️ AUTOMATION IN PROGRESS — slug: send-welcome-email, 2/5 tasks complete. Resume at Task 3. Do not re-dispatch completed tasks. For full details read docs/automations/2026-08-22-send-welcome-email/progress.md.",
+    );
+  });
 });
 
 describe("parseLocateOutput — not-found states", () => {
   const text = [
+    "No in-progress automation — greenfield.",
     "[locate-automation] slug: ghost",
     "spec: docs/specs/ghost.md (not found)",
     "plan: docs/plans/2026-08-22-ghost.md (status: planned)",
@@ -376,6 +383,26 @@ describe("parseLocateOutput — not-found states", () => {
     expect(r.specExists).toBe(false);
     expect(r.ledgerExists).toBe(false);
     expect(r.planStatus).toBe("planned");
+  });
+  it("captures the greenfield banner", () => {
+    expect(r.progressBanner).toBe("No in-progress automation — greenfield.");
+  });
+});
+
+describe("parseLocateOutput — planned-not-started banner", () => {
+  const text = [
+    "📋 AUTOMATION PLANNED — slug: ghost, 0/5 tasks complete. Start at Task 1. For full details read docs/automations/2026-08-22-ghost/progress.md.",
+    "[locate-automation] slug: ghost",
+    "spec: docs/specs/ghost.md (exists)",
+    "plan: docs/plans/2026-08-22-ghost.md (status: planned)",
+    "ledger: docs/automations/2026-08-22-ghost/progress.md (not found)",
+    "progress: 0/5 tasks complete — next: Task 1",
+  ].join("\n");
+  const r = parseLocateOutput(text);
+  it("captures the planned banner", () => {
+    expect(r.progressBanner).toBe(
+      "📋 AUTOMATION PLANNED — slug: ghost, 0/5 tasks complete. Start at Task 1. For full details read docs/automations/2026-08-22-ghost/progress.md.",
+    );
   });
 });
 

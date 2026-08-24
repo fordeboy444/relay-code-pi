@@ -17,11 +17,10 @@ rather than prose for the model to follow.
 ## Commands
 
 ```sh
-npm install            # resolve the 9 Pi extension peer/deps under node_modules/ (runs
-                       # `prepare` → patch-package, which applies the pi-secret-mask timeout patch)
+npm install            # resolve the Pi extension peer/deps under node_modules/
 npm test               # vitest run — pure-core unit tests (the primary gate; TS pipeline exercised here)
 npm run test:watch     # vitest watch
-pi -e .               # package-load smoke gate — expect SMOKE_OK (loads 10 tools + 8 extensions)
+pi -e .               # package-load smoke gate — expect SMOKE_OK (loads 10 tools + 7 extensions)
 pi -p "Reply with exactly SMOKE_OK and nothing else."   # full-stack host load check
 ```
 
@@ -35,7 +34,7 @@ npx vitest run tests/cores.test.ts            # the whole file (there is only on
 `npm test` is the gate you should run after any change to `src/` or `tests/`. The project's
 `tsconfig.json` type-checks `src/**/*.ts` + `tests/**/*.ts` only — **`extensions/` is excluded**
 from the project's TS compilation because it imports Pi runtime APIs
-(`@earendil-works/pi-coding-agent`, `pi-secret-mask`, etc.) resolved only inside a Pi host.
+(`@earendil-works/pi-coding-agent`, `pi-subagents`, etc.) resolved only inside a Pi host.
 There is no build step; `noEmit: true`.
 
 There is no account-gated E2E test in CI. The account-gated run (real Trigger.dev + Modal +
@@ -74,13 +73,15 @@ the real framework template files; tests load them and assert the transformed ou
   `relay_lint` (conformance checker the agent self-calls on its own specs/plans).
   A `/plan` **command** (not a tool — does not count toward the tool set) toggles Plannotator
   plan mode via its event bus.
-- **Constitution** (`skills/relay-system-setup/references/templates/AGENTS.md`) — the
+- **Constitution** (`skills/relay-system-setup/references/templates/prompts/AGENTS.md`) — the
   always-on ruleset (tool-use rules, deploy order, security invariants, lifecycle conventions).
-  `relay-system-setup` scaffolds it as the project-root `AGENTS.md`, merged with the project's
-  `## Environment` table + `## Project identity` block, so Pi loads it as project context on
-  every turn during research/plan/execute — there is **no** `before_agent_start` injection
-  handler. If you change a rule in the template, it changes the agent's behavior in every
-  project scaffolded after that; already-scaffolded projects carry their own copy.
+  `relay-system-setup` scaffolds it as the project-root `prompts/AGENTS.md`, which Pi
+  auto-discovers and bundles into the system prompt on every turn — there is **no**
+  `before_agent_start` injection handler. It carries **no project state**; per-project state
+  lives in `docs/automations/<plan>/progress.md`, and the agent reads it on demand via
+  `relay_locate_automation` (whose first output line is the progress banner). If you change a
+  rule in the template, it changes the agent's behavior in every project scaffolded after
+  that; already-scaffolded projects carry their own copy.
 - **Skills** (`skills/`) — the setup + lifecycle orchestration
   (`relay-system-setup` → `relay-research-automation` → `relay-plan-automation` →
   `relay-execute-or-resume-automation`), `relay-update-or-fix-automation` (delta vs an existing
@@ -114,10 +115,11 @@ from the framework template — surface this to the user; do not patch it by han
 
 Pi loads a project's context as `AGENTS.override.md` → `AGENTS.md` → `CLAUDE.md` (default
 `AGENTS.md`). `relay_add_env_var` writes its env-table row into whichever of these exists
-(`cores.pickContextFile`), so it works in a scaffolded relay-code project (which ships
-`AGENTS.md`) with no manual rename. The `relay-system-setup` skill scaffolds that `AGENTS.md`
-— the constitution on top, then its `## Environment` table and `## Project identity` block —
-from bundled templates; `TRIGGER_PROJECT_ID` lives in `trigger.config.ts` (not `.env`).
+(`cores.pickContextFile`). A scaffolded relay-code project ships **no** root context file —
+the constitution lives in `prompts/AGENTS.md` (system-prompt injection, not a context file) —
+so the env-table write degrades gracefully (the env var still lands in `src/config.ts`, the
+authoritative record; the extension reports "env table NOT updated"). `TRIGGER_PROJECT_ID`
+lives in `trigger.config.ts` (not `.env`).
 
 ## Conventions to follow when editing this repo
 
@@ -127,9 +129,10 @@ from bundled templates; `TRIGGER_PROJECT_ID` lives in `trigger.config.ts` (not `
 - **Windows is a first-class host** (`process.platform === "win32"` paths exist in the
   extension: `npm.cmd`, `taskkill /T /F`, `shell: true` for the detached dev worker). Don't
   remove them.
-- **Secrets are never echoed** — the `pi-secret-mask` hook masks before the provider request and
-  substitutes back for bash/write/edit. When describing secrets in tool output or docs, confirm
-  only the prefix (`tr_dev_…`, `tr_prod_…`, `ak-…`, `as-…`).
+- **Secrets are never echoed** — secret values live in `.env` / `.env.production`, written by
+  the `.env-storage` skill; the agent never types a secret value into a tool input. When
+  describing secrets in tool output or docs, confirm only the prefix (`tr_dev_…`, `tr_prod_…`,
+  `ak-…`, `as-…`).
 - `.pi/` is git-ignored runtime scratch (dev-worker pid/log, deploy-gate marker, lint report);
   never commit it.
 - The `package.json` `"pi"` block is the manifest Pi reads — `extensions`, `skills`, `prompts`,
@@ -139,6 +142,6 @@ from bundled templates; `TRIGGER_PROJECT_ID` lives in `trigger.config.ts` (not `
 
 - `docs/e2e-runbook.md` — the account-gated end-to-end run (Trigger.dev + Modal + Airtable).
 - `docs/superpowers/specs/2026-08-22-relay-code-pi-design.md` — the design doc.
-- `skills/relay-system-setup/references/templates/AGENTS.md` — the constitution template;
-  `relay-system-setup` scaffolds it as the project-root `AGENTS.md`. The authoritative list of
-  tool-use rules.
+- `skills/relay-system-setup/references/templates/prompts/AGENTS.md` — the constitution
+  template; `relay-system-setup` scaffolds it as the project-root `prompts/AGENTS.md`. The
+  authoritative list of tool-use rules.

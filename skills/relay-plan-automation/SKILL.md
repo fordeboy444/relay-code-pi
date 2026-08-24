@@ -17,7 +17,7 @@ Read the spec at `docs/specs/<slug>.md`. If no spec exists for the slug, stop an
 
 ## Workflow
 
-0. **Locate the automation.** Call **`relay_locate_automation`** with the slug (or without one to list candidates, then ask the user to pick). Confirm the spec exists; if not, stop and tell the user to run `/skill:relay-research-automation` first. If a plan for this slug already exists, ask whether to overwrite, create a new dated version, or open the existing one.
+0. **Locate the automation.** Call **`relay_locate_automation`** with the slug (or without one to list candidates, then ask the user to pick). Always treat the first line of its output as the canonical progress signal; obey it before reading the rest of the tool output. Confirm the spec exists; if not, stop and tell the user to run `/skill:relay-research-automation` first. If a plan for this slug already exists, ask whether to overwrite, create a new dated version, or open the existing one.
 
 1. **Read the spec and note its contract.**
    - Carry forward verbatim: trigger type, task id, env var names, integration field names/types, Modal bridge requirements, deploy notes.

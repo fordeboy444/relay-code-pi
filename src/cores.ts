@@ -332,6 +332,8 @@ export interface LocateResult {
   ledgerPath: string | null;
   ledgerExists: boolean;
   progress: string | null;
+  /** First line of output — the unmissable progress signal (⚠️/📋 banner or greenfield). */
+  progressBanner: string | null;
   listMode: boolean;
   raw: string;
 }
@@ -340,7 +342,7 @@ export interface LocateResult {
 export function parseLocateOutput(text: string): LocateResult {
   const out = text.trim();
   if (out.startsWith("[locate-automation] no slug given") || out.startsWith("[locate-automation] no automations")) {
-    return { slug: null, specPath: null, specExists: false, planPath: null, planStatus: null, ledgerPath: null, ledgerExists: false, progress: null, listMode: true, raw: text };
+    return { slug: null, specPath: null, specExists: false, planPath: null, planStatus: null, ledgerPath: null, ledgerExists: false, progress: null, progressBanner: null, listMode: true, raw: text };
   }
   const m = (re: RegExp): RegExpMatchArray | null => out.match(re);
   const slugM = m(/^\[locate-automation\] slug:\s*(.+)$/m);
@@ -348,6 +350,8 @@ export function parseLocateOutput(text: string): LocateResult {
   const planM = m(/^plan:\s*(\S+)\s*\(status:\s*(.+?)\)/m);
   const ledgerM = m(/^ledger:\s*(\S+)\s*\((exists|not found)\)/m);
   const progressM = m(/^progress:\s*(.+)$/m);
+  // The banner is always the first line of output (see locate-automation.mjs).
+  const bannerM = out.match(/^(?:⚠️ AUTOMATION IN PROGRESS — .+|📋 AUTOMATION PLANNED — .+|No in-progress automation — greenfield\.)/);
   return {
     slug: slugM ? slugM[1] : null,
     specPath: specM ? specM[1] : null,
@@ -357,6 +361,7 @@ export function parseLocateOutput(text: string): LocateResult {
     ledgerPath: ledgerM ? ledgerM[1] : null,
     ledgerExists: ledgerM ? ledgerM[2] === "exists" : false,
     progress: progressM ? progressM[1] : null,
+    progressBanner: bannerM ? bannerM[0] : null,
     listMode: false,
     raw: text,
   };

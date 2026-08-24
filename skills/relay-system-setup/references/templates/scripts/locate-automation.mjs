@@ -16,6 +16,13 @@
 //     [locate-automation] no automations
 //
 //   slug given:
+//     <banner>   — first line, always present. One of:
+//       ⚠️ AUTOMATION IN PROGRESS — slug: <slug>, <done>/<total> tasks complete.
+//         Resume at Task <N>. Do not re-dispatch completed tasks. For full
+//         details read <ledgerPath>.
+//       📋 AUTOMATION PLANNED — slug: <slug>, 0/<total> tasks complete. Start at
+//         Task 1. For full details read <ledgerPath>.
+//       No in-progress automation — greenfield.
 //     [locate-automation] slug: <slug>
 //     spec: docs/specs/<slug>.md (exists|not found)
 //     plan: docs/plans/<newest-plan>.md (status: <status>)   |  plan: (not found)
@@ -103,8 +110,22 @@ function progressSummary(planFile, ledgerFile) {
   for (let n = 1; n <= total; n++) {
     if (!done.has(n)) { next = n; break; }
   }
-  const nextStr = total === 0 || next == null ? "(none)" : `Task ${next}`;
-  return `${done.size}/${total} tasks complete — next: ${nextStr}`;
+  return { done: done.size, total, next };
+}
+
+function formatProgress(p) {
+  const nextStr = p.total === 0 || p.next == null ? "(none)" : `Task ${p.next}`;
+  return `${p.done}/${p.total} tasks complete — next: ${nextStr}`;
+}
+
+// The first line of output — the unmissable progress signal. The three relay
+// skills are instructed to treat it as canonical before reading the rest.
+function bannerFor(slug, p, ledgerPath) {
+  if (p.total === 0) return "No in-progress automation — greenfield.";
+  if (p.done === 0) {
+    return `📋 AUTOMATION PLANNED — slug: ${slug}, 0/${p.total} tasks complete. Start at Task 1. For full details read ${ledgerPath}.`;
+  }
+  return `⚠️ AUTOMATION IN PROGRESS — slug: ${slug}, ${p.done}/${p.total} tasks complete. Resume at Task ${p.next}. Do not re-dispatch completed tasks. For full details read ${ledgerPath}.`;
 }
 
 if (!slug) {
@@ -120,19 +141,27 @@ if (!slug) {
   process.exit(0);
 }
 
-console.log(`[locate-automation] slug: ${slug}`);
-const specPath = `docs/specs/${slug}.md`;
-console.log(`spec: ${specPath} (${isFile(join(cwd, specPath)) ? "exists" : "not found"})`);
-
 const plan = newestPlan(slug);
+const specPath = `docs/specs/${slug}.md`;
+const specExists = isFile(join(cwd, specPath));
+
+let banner = "No in-progress automation — greenfield.";
+let planLine = "plan: (not found)";
+let ledgerLine = "ledger: (not found)";
+let progressLine = "progress: 0/0 tasks complete — next: (none)";
 if (plan) {
-  console.log(`plan: docs/plans/${plan} (status: ${readStatus(plan) ?? "unknown"})`);
   const ledgerPath = `docs/automations/${plan.slice(0, -3)}/progress.md`;
-  console.log(`ledger: ${ledgerPath} (${isFile(join(cwd, ledgerPath)) ? "exists" : "not found"})`);
-  console.log(`progress: ${progressSummary(plan, join(cwd, ledgerPath))}`);
-} else {
-  console.log("plan: (not found)");
-  console.log("ledger: (not found)");
-  console.log("progress: 0/0 tasks complete — next: (none)");
+  const p = progressSummary(plan, join(cwd, ledgerPath));
+  banner = bannerFor(slug, p, ledgerPath);
+  planLine = `plan: docs/plans/${plan} (status: ${readStatus(plan) ?? "unknown"})`;
+  ledgerLine = `ledger: ${ledgerPath} (${isFile(join(cwd, ledgerPath)) ? "exists" : "not found"})`;
+  progressLine = `progress: ${formatProgress(p)}`;
 }
+
+console.log(banner);
+console.log(`[locate-automation] slug: ${slug}`);
+console.log(`spec: ${specPath} (${specExists ? "exists" : "not found"})`);
+console.log(planLine);
+console.log(ledgerLine);
+console.log(progressLine);
 process.exit(0);

@@ -31,8 +31,10 @@ Requires [Pi](https://pi.dev) ≥ 0.80.6 (for `@narumitw/pi-goal` `agent_settled
   `relay-execute-or-resume-automation` / `relay-update-or-fix-automation` /
   `relay-sub-agent-builder`) and vendored integration API docs.
 - **Constitution** — the framework's security rules and deploy order, scaffolded by
-  `relay-system-setup` as the project-root `AGENTS.md` (merged with the project's
-  Environment + Project identity) so Pi loads it as context every turn.
+  `relay-system-setup` as the project-root `prompts/AGENTS.md`, which Pi auto-discovers
+  and bundles into the system prompt every turn. It carries no project state; per-project
+  progress lives in `docs/automations/<plan>/progress.md`, read on demand via
+  `relay_locate_automation`.
 - **6 sub-agents** (`agents/`) — gated fan-out via `pi-subagents`
   (airtable, apify, gohighlevel, modal, trigger-dev, unipile).
 
@@ -40,8 +42,9 @@ Requires [Pi](https://pi.dev) ≥ 0.80.6 (for `@narumitw/pi-goal` `agent_settled
 
 - `relay_deploy_modal` **refuses** until `relay_smoke_test` writes the
   deploy-gate marker — the deploy order is mechanically enforced, not advisory.
-- `pi-secret-mask` masks secrets before the provider request and substitutes
-  them back for bash/write/edit — "never echo secrets" enforced as a hook.
+- Secret values live in `.env` / `.env.production`, written by the
+  `.env-storage` skill — the agent never types a secret value into a tool
+  input, so secrets never enter the model context.
 - File-mutating tools run inside `withFileMutationQueue` and throw on a
   missing anchor rather than silently corrupting a hand-edited file.
 
