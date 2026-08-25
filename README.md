@@ -68,9 +68,6 @@ npm test          # vitest — pure-core unit tests
 pi -e .           # package-load smoke gate (expect SMOKE_OK)
 ```
 
-See `docs/e2e-runbook.md` for the account-gated end-to-end run, and
-`docs/superpowers/specs/2026-08-22-relay-code-pi-design.md` for the design.
-
 ## Installing env-storage
 
 The `env-storage` skill is a **separate** Pi package (`env-storage-user-skill`),
@@ -104,7 +101,7 @@ install only adds the skill files (`SKILL.md` + `assets/`).
 
 ## Version history
 
-Current version: **0.5.6**. The publish flow keeps this table in sync — every release appends
+Current version: **0.5.7**. The publish flow keeps this table in sync — every release appends
 a row (see `CLAUDE.md` → Publishing). Versions marked "(published; no matching git commit —
 pre-reconcile drift)" exist on npm but were never recorded as a git commit on `main`; do not
 create commits or tags for them retroactively.
@@ -126,6 +123,7 @@ create commits or tags for them retroactively.
 | 0.5.4 | Dropped the pi-claude-marketplace extension added in 0.5.3 (no consumer in the package). |
 | 0.5.5 | (published; no matching git commit — pre-reconcile drift; the release in which `@llblab/pi-telegram` was re-added without `bundleDependencies`, so it hoisted and its tools stopped loading) |
 | 0.5.6 | Restored `bundleDependencies` (correct spelling, all 6 external pi packages listed) and re-added `@llblab/pi-telegram` to the manifest, fixing the pi-telegram load failure that first appeared after 0.5.5. |
+| 0.5.7 | Architecture deepening from the codebase review (no behavior change): deploy-gate + dev-worker state machines moved into pure cores (`src/cores.ts`), new `mutateFile` mutation adapter in the tool glue, spec/plan/roster/deploy-order prose anchored to their canonical constants, and the six-agent "Context — where to look" preamble template aligned to the shipped agents. |
 
 ## License
 
