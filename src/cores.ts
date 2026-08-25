@@ -388,6 +388,109 @@ export function parseRunIdFromTrigger(triggerBody: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// relay_smoke_test / relay_deploy_modal — the deploy-gate marker (.pi/relay-deploy-gate.json)
+// ---------------------------------------------------------------------------
+
+/** The `.pi` state dir shared by the dev worker, the deploy gate, and relay_lint. */
+export const RELAY_STATE_DIR = ".pi";
+
+/** Path of the deploy-gate marker, relative to the project root. */
+export const DEPLOY_GATE_RELATIVE_PATH = `${RELAY_STATE_DIR}/relay-deploy-gate.json`;
+
+/** The hard deploy order (relay_deploy_modal refuses before the smoke-test gate passes). */
+export const DEPLOY_ORDER = "relay_deploy_trigger → relay_smoke_test → relay_deploy_modal";
+
+/** Run statuses that end the smoke-test poll loop. */
+export const TERMINAL_RUN_STATUSES = [
+  "COMPLETED",
+  "FAILED",
+  "CANCELED",
+  "CRASHED",
+  "SYSTEM_FAILURE",
+] as const;
+export type TerminalRunStatus = (typeof TERMINAL_RUN_STATUSES)[number];
+
+export interface DeployGate {
+  task: string;
+  runId: string;
+  status: string; // always "COMPLETED" in practice
+  ts: string;
+}
+
+/** True when a run status ends the smoke-test poll loop. */
+export function isTerminalRunStatus(status: string): boolean {
+  return TERMINAL_RUN_STATUSES.includes(status as TerminalRunStatus);
+}
+
+/** Build the marker a passed smoke test writes. */
+export function buildDeployGate(task: string, runId: string, ts = new Date().toISOString()): DeployGate {
+  return { task, runId, status: "COMPLETED", ts };
+}
+
+/**
+ * Parse a gate marker's text. Returns null when the text isn't a valid gate
+ * (so the glue can tell "corrupted" from "missing", which is a read failure).
+ */
+export function parseDeployGate(text: string): DeployGate | null {
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (typeof data !== "object" || data === null) return null;
+  const o = data as Record<string, unknown>;
+  if (typeof o.task !== "string" || typeof o.runId !== "string" || typeof o.status !== "string") return null;
+  return { task: o.task, runId: o.runId, status: o.status, ts: typeof o.ts === "string" ? o.ts : "" };
+}
+
+/** True when a parsed gate says the smoke test passed. Lenient: case-insensitive, missing status = not deployable. */
+export function isGateDeployable(gate: DeployGate | null): boolean {
+  return gate !== null && String(gate.status ?? "").toUpperCase() === "COMPLETED";
+}
+
+// ---------------------------------------------------------------------------
+// relay_dev_worker — the dev-worker pid marker + readiness-poll state machine
+// ---------------------------------------------------------------------------
+
+/** Filenames of the dev-worker marker and log, relative to RELAY_STATE_DIR. */
+export const DEV_WORKER_PID_FILENAME = "relay-dev-worker.pid";
+export const DEV_WORKER_LOG_FILENAME = "relay-dev-worker.log";
+
+/** Readiness markers for `npm run trigger:dev` stdout. */
+export const DEV_WORKER_READY_RE = /registered|listening|worker.*ready|started\s+worker| Watching /i;
+
+/** Poll cadence and deadline for the readiness marker. */
+export const DEV_WORKER_POLL_INTERVAL_MS = 2000;
+export const DEV_WORKER_READY_DEADLINE_MS = 90000;
+
+/** A single readiness-poll round's verdict. */
+export type DevWorkerPollVerdict =
+  | { state: "ready" }    // readiness marker seen — worker is up
+  | { state: "exited" }   // process died before ready
+  | { state: "timeout" }  // deadline passed, still alive, no marker
+  | { state: "waiting" }; // keep polling
+
+/** Parse the pid marker file's text. Null unless the whole text is a positive integer. */
+export function parsePidMarker(text: string): number | null {
+  const trimmed = text.trim();
+  const n = parseInt(trimmed, 10);
+  return Number.isInteger(n) && n > 0 && String(n) === trimmed ? n : null;
+}
+
+/** Verdict for one readiness-poll round: ready beats exited beats timeout. */
+export function devWorkerPollVerdict(opts: {
+  log: string;
+  alive: boolean;
+  deadlineExceeded: boolean;
+}): DevWorkerPollVerdict {
+  if (DEV_WORKER_READY_RE.test(opts.log)) return { state: "ready" };
+  if (!opts.alive) return { state: "exited" };
+  if (opts.deadlineExceeded) return { state: "timeout" };
+  return { state: "waiting" };
+}
+
+// ---------------------------------------------------------------------------
 // .env parsing / rendering (relay_smoke_test reads the prod secret without
 // relying on process.env being populated in the Pi process)
 // ---------------------------------------------------------------------------
@@ -423,6 +526,14 @@ export function parseDotenv(text: string): Record<string, string> {
 // carries `status` frontmatter from a closed set and an `**Agents:** <name>`
 // line per task naming only the six ported domain agents; every spec carries
 // slug/name/trigger_type/created frontmatter.
+//
+// The contract has two homes by design: enforced here (PLAN_STATUS_VALUES,
+// VALID_AGENT_NAMES, and the spec field set in lintSpec below) and restated as
+// prompt prose in prompts/AGENTS.md (Lifecycle + Sub-agents), the research
+// skill's spec template (step 7), the plan skill (step 4 roster + template +
+// step 10), the execute skill's step 10, and the update-or-fix skill's step 3.
+// Prose can't import the constants, so it must stay consistent by hand — when
+// you change a value below, update every prose home in the same commit.
 // ---------------------------------------------------------------------------
 
 export const PLAN_STATUS_VALUES = ["planned", "in_progress", "paused", "completed"] as const;

@@ -22,6 +22,20 @@ import {
   pickContextFile,
   CONTEXT_FILE_PRECEDENCE,
   DEFAULT_CONTEXT_FILE,
+  RELAY_STATE_DIR,
+  DEPLOY_GATE_RELATIVE_PATH,
+  DEPLOY_ORDER,
+  TERMINAL_RUN_STATUSES,
+  buildDeployGate,
+  parseDeployGate,
+  isGateDeployable,
+  isTerminalRunStatus,
+  DEV_WORKER_PID_FILENAME,
+  DEV_WORKER_LOG_FILENAME,
+  DEV_WORKER_POLL_INTERVAL_MS,
+  DEV_WORKER_READY_DEADLINE_MS,
+  parsePidMarker,
+  devWorkerPollVerdict,
 } from "../src/cores";
 
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
@@ -558,5 +572,143 @@ status: in_progress
   it("handles -> ASCII arrow chains", () => {
     const out = good(`---\nstatus: planned\n---\n**Agents:** airtable-agent -> trigger-dev-agent`);
     expect(out.filter((f) => f.severity === "warning")).toEqual([]);
+  });
+});
+
+describe("isTerminalRunStatus", () => {
+  it("returns true for every terminal status", () => {
+    for (const s of ["COMPLETED", "FAILED", "CANCELED", "CRASHED", "SYSTEM_FAILURE"]) {
+      expect(isTerminalRunStatus(s)).toBe(true);
+    }
+  });
+  it("returns false for non-terminal statuses", () => {
+    expect(isTerminalRunStatus("RUNNING")).toBe(false);
+    expect(isTerminalRunStatus("")).toBe(false);
+  });
+});
+
+describe("buildDeployGate", () => {
+  it("builds a COMPLETED gate with the given task/runId/ts", () => {
+    expect(buildDeployGate("health-check", "run_123", "2026-08-25T00:00:00.000Z")).toEqual({
+      task: "health-check",
+      runId: "run_123",
+      status: "COMPLETED",
+      ts: "2026-08-25T00:00:00.000Z",
+    });
+  });
+  it("defaults ts to a non-empty ISO timestamp", () => {
+    const gate = buildDeployGate("health-check", "run_123");
+    expect(gate.ts).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+});
+
+describe("parseDeployGate", () => {
+  it("round-trips buildDeployGate output", () => {
+    const gate = buildDeployGate("health-check", "run_123", "2026-08-25T00:00:00.000Z");
+    expect(parseDeployGate(JSON.stringify(gate))).toEqual(gate);
+  });
+  it("parses the existing on-disk format", () => {
+    const text = JSON.stringify(
+      { task: "health-check", runId: "run_123", status: "COMPLETED", ts: "2026-08-25T00:00:00.000Z" },
+      null,
+      2,
+    );
+    expect(parseDeployGate(text)).toEqual({
+      task: "health-check",
+      runId: "run_123",
+      status: "COMPLETED",
+      ts: "2026-08-25T00:00:00.000Z",
+    });
+  });
+  it("returns null for malformed JSON and JSON null", () => {
+    expect(parseDeployGate("{not json")).toBeNull();
+    expect(parseDeployGate("null")).toBeNull();
+  });
+  it("returns null when required fields are missing", () => {
+    expect(parseDeployGate(JSON.stringify({ status: "COMPLETED" }))).toBeNull();
+    expect(parseDeployGate(JSON.stringify({ task: "health-check", runId: "run_123" }))).toBeNull();
+  });
+});
+
+describe("isGateDeployable", () => {
+  it("accepts COMPLETED case-insensitively", () => {
+    expect(isGateDeployable(buildDeployGate("health-check", "run_123"))).toBe(true);
+    const lower = parseDeployGate(JSON.stringify({ task: "t", runId: "r", status: "completed", ts: "t" }));
+    expect(isGateDeployable(lower)).toBe(true);
+  });
+  it("rejects failed gates, empty status, and null", () => {
+    const failed = parseDeployGate(JSON.stringify({ task: "t", runId: "r", status: "FAILED", ts: "t" }));
+    expect(isGateDeployable(failed)).toBe(false);
+    expect(isGateDeployable({ task: "t", runId: "r", status: "", ts: "" })).toBe(false);
+    expect(isGateDeployable(null)).toBe(false);
+  });
+});
+
+describe("deploy-gate constants", () => {
+  it("matches the hard deploy order", () => {
+    expect(DEPLOY_ORDER).toBe("relay_deploy_trigger → relay_smoke_test → relay_deploy_modal");
+  });
+  it("locates the gate marker under .pi", () => {
+    expect(RELAY_STATE_DIR).toBe(".pi");
+    expect(DEPLOY_GATE_RELATIVE_PATH).toBe(".pi/relay-deploy-gate.json");
+  });
+  it("TERMINAL_RUN_STATUSES includes COMPLETED and the failure statuses", () => {
+    expect(TERMINAL_RUN_STATUSES).toEqual(["COMPLETED", "FAILED", "CANCELED", "CRASHED", "SYSTEM_FAILURE"]);
+  });
+});
+
+describe("parsePidMarker", () => {
+  it("parses a clean integer marker", () => {
+    expect(parsePidMarker("12345")).toBe(12345);
+  });
+  it("trims surrounding whitespace", () => {
+    expect(parsePidMarker(" 42\n")).toBe(42);
+  });
+  it("rejects empty / non-numeric text", () => {
+    expect(parsePidMarker("")).toBeNull();
+    expect(parsePidMarker("abc")).toBeNull();
+  });
+  it("rejects partial or non-positive integers (strict whole-string match)", () => {
+    expect(parsePidMarker("123abc")).toBeNull();
+    expect(parsePidMarker("0")).toBeNull();
+    expect(parsePidMarker("-5")).toBeNull();
+  });
+});
+
+describe("devWorkerPollVerdict", () => {
+  it("is ready when the log shows any readiness marker (case-insensitive)", () => {
+    for (const marker of ["registered", "REGISTERED", "listening", "Watching for changes", "started worker", "worker is ready"]) {
+      expect(devWorkerPollVerdict({ log: `[info] ${marker}`, alive: true, deadlineExceeded: false })).toEqual({
+        state: "ready",
+      });
+    }
+  });
+  it("ready wins even if the process died or the deadline passed", () => {
+    expect(devWorkerPollVerdict({ log: "registered", alive: false, deadlineExceeded: true })).toEqual({
+      state: "ready",
+    });
+  });
+  it("reports exited when the process dies before ready", () => {
+    expect(devWorkerPollVerdict({ log: "", alive: false, deadlineExceeded: false })).toEqual({ state: "exited" });
+  });
+  it("exited wins over a passed deadline (no misleading 'may still be starting')", () => {
+    expect(devWorkerPollVerdict({ log: "", alive: false, deadlineExceeded: true })).toEqual({ state: "exited" });
+  });
+  it("times out when the deadline passes with the process still alive", () => {
+    expect(devWorkerPollVerdict({ log: "", alive: true, deadlineExceeded: true })).toEqual({ state: "timeout" });
+  });
+  it("keeps waiting while alive and within the deadline", () => {
+    expect(devWorkerPollVerdict({ log: "", alive: true, deadlineExceeded: false })).toEqual({ state: "waiting" });
+  });
+});
+
+describe("dev-worker constants", () => {
+  it("names the pid + log files under .pi", () => {
+    expect(DEV_WORKER_PID_FILENAME).toBe("relay-dev-worker.pid");
+    expect(DEV_WORKER_LOG_FILENAME).toBe("relay-dev-worker.log");
+  });
+  it("polls every 2s with a 90s deadline", () => {
+    expect(DEV_WORKER_POLL_INTERVAL_MS).toBe(2000);
+    expect(DEV_WORKER_READY_DEADLINE_MS).toBe(90000);
   });
 });

@@ -37,7 +37,7 @@ Read the spec at `docs/specs/<slug>.md`. If no spec exists for the slug, stop an
    Lock decomposition here; each file should have one clear responsibility.
 
 4. **Confirm the sub-agent roster.**
-   - Default to the agents named in the spec's `## Sub-agents` section. Primary agents (`modal-agent`, `trigger-dev-agent`) are assumed unless the spec omits them; add-on agents appear only when the spec adds them. Every name on a task's `**Agents:**` line must be one of the six in `VALID_AGENT_NAMES` (`airtable-agent`, `apify-agent`, `gohighlevel-agent`, `modal-agent`, `trigger-dev-agent`, `unipile-agent`) — `relay_lint` rejects anything else, so do not put built-in agent types like `Explore` on an `**Agents:**` line.
+   - Default to the agents named in the spec's `## Sub-agents` section. Primary agents (`modal-agent`, `trigger-dev-agent`) are assumed unless the spec omits them; add-on agents appear only when the spec adds them. Every name on a task's `**Agents:**` line must be one of the six in `VALID_AGENT_NAMES` — the relay-code-pi package's `src/cores.ts` (`airtable-agent`, `apify-agent`, `gohighlevel-agent`, `modal-agent`, `trigger-dev-agent`, `unipile-agent`) — `relay_lint` rejects anything else, so do not put built-in agent types like `Explore` on an `**Agents:**` line.
    - If any task touches software no listed agent covers, use AskUserQuestion to ask which sub-agent should be used or created. New agents are authored under `.claude/agents/<name>.md` with the `context7-cli` skill appended (see Sub-agent creation rule) before finalizing the plan.
 
 5. **Right-size the tasks.**
@@ -113,7 +113,7 @@ Read the spec at `docs/specs/<slug>.md`. If no spec exists for the slug, stop an
 9. **Ask for approval.**
    - Present the plan to the user in chat (paste the plan + spec paths). Ask: approve, revise, or reject. Do **not** spawn any implementation agent before approval.
 
-10. **Self-check conformance, then hand off.** Once approved, set plan `status: planned`. Call **`relay_lint`** and confirm it is clean — it checks the plan's `status` frontmatter, that every `**Agents:**` line names only the six ported agents, and that the spec has `slug`/`name`/`trigger_type`/`created` frontmatter. Fix every error it reports (edit the named file), then re-call `relay_lint` until clean. Do **not** auto-invoke the next skill. Stop and tell the user:
+10. **Self-check conformance, then hand off.** Once approved, set plan `status: planned`. Call **`relay_lint`** and confirm it is clean — it checks the plan's `status` frontmatter, that every `**Agents:**` line names only the six ported agents, and that the spec has `slug`/`name`/`trigger_type`/`created` frontmatter. The closed status set and agent roster are canonical in the relay-code-pi package's `src/cores.ts` (`PLAN_STATUS_VALUES`, `VALID_AGENT_NAMES`) — keep this template and the constitution's Lifecycle + Sub-agents sections in sync when either changes. Fix every error it reports (edit the named file), then re-call `relay_lint` until clean. Do **not** auto-invoke the next skill. Stop and tell the user:
     > The plan is written to `docs/plans/YYYY-MM-DD-<slug>.md`. Run `/clear` to clear the context, then run `/skill:relay-execute-or-resume-automation <slug>` to start (or resume) the implementation. Execute writes and tests the Trigger.dev task against the **local dev worker** (it calls `relay_dev_worker up` itself); when all tasks are done, execute deploys to production via `relay_deploy_trigger` → `relay_smoke_test` → `relay_deploy_modal`.
 
 ## Sub-agent creation rule

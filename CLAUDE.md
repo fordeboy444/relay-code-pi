@@ -38,7 +38,8 @@ Run a single test or group:
 
 ```sh
 npx vitest run -t "addEnvVarToConfig"          # by describe/it name (substring match)
-npx vitest run tests/cores.test.ts            # the whole file (there is only one test file)
+npx vitest run tests/cores.test.ts            # pure-core transform tests (src/cores.ts)
+npx vitest run tests/skills.test.ts           # relay-* SKILL.md frontmatter YAML sweep (js-yaml)
 ```
 
 `npm test` is the gate you should run after any change to `src/` or `tests/`. The project's
@@ -48,7 +49,7 @@ from the project's TS compilation because it imports Pi runtime APIs
 There is no build step; `noEmit: true`.
 
 There is no account-gated E2E test in CI. The account-gated run (real Trigger.dev + Modal +
-Airtable) is manual — see `docs/e2e-runbook.md`, run once per release.
+Airtable) is manual, run once per release.
 
 A local-check gotcha: if `npm:relay-code-pi@latest` is in your Pi `settings.json` (the global
 install), running `pi` from inside this checkout loads the package **twice** (global + local) and
@@ -68,9 +69,11 @@ Every convention-enforcing tool is split across two layers, and you must keep th
   schema constant, task scaffold, `ALLOWED_TASKS` sync, locate-output parse, smoke-test
   trigger-parse, dotenv parse, spec/plan lint) lives here.
 - **`extensions/relay-tools.ts`** — one file, one default export factory, many
-  `pi.registerTool` calls. Each tool's `execute` body is **thin glue**: read file → call a
-  pure core → write back, all inside `withFileMutationQueue`, or shell out via `pi.exec` /
-  `fetch` for action tools. The glue **never** holds logic that could be a pure function.
+  `pi.registerTool` calls. Each tool's `execute` body is **thin glue**: a file mutation is
+  one `mutateFile(path, core)` call — the shared adapter that runs read → pure core → write
+  inside `withFileMutationQueue`, so the queue is never skipped — or it shells out via
+  `pi.exec` / `fetch` for action tools. The glue **never** holds logic that could be a pure
+  function.
 
 When you add or change a tool's behavior, **add the logic to `src/cores.ts` and test it with a
 fixture**, then wire it in `extensions/relay-tools.ts`. The reverse (logic in the extension)
@@ -174,8 +177,6 @@ auto-edit it). `.env.production` is no longer scaffolded — the user owns that 
 
 ## Key references in-repo
 
-- `docs/e2e-runbook.md` — the account-gated end-to-end run (Trigger.dev + Modal + Airtable).
-- `docs/superpowers/specs/2026-08-22-relay-code-pi-design.md` — the design doc.
 - `prompts/AGENTS.md` — the constitution (repo root, also shipped in the npm tarball);
   the authoritative list of tool-use rules. Pi auto-injects it into the system prompt on
   every turn.
@@ -218,7 +219,7 @@ direct-publish access in January 2027**; rotate to OIDC-from-CI or interactive O
    (Optional pre-flight: `npm pack --dry-run` before committing catches a bad `files` list
    early; the required order is commit → tag → push → dry-run → publish.)
 4. `npm pack --dry-run` — confirm only the intended files ship. For relay-code-pi that means
-   `extensions/`, `skills/`, `agents/`, `prompts/`, plus `package.json` + `README.md` +
+   `extensions/`, `src/`, `skills/`, `agents/`, `prompts/`, plus `package.json` + `README.md` +
    `LICENSE`, **plus the bundled `node_modules/` of the 6 external pi packages** (`pi-subagents`,
    `pi-background-tasks`, `pi-context-usage`, `@juicesharp/rpiv-ask-user-question`,
    `@juicesharp/rpiv-todo`, `@llblab/pi-telegram` — see the bundle note below). The `npm pack`
@@ -244,9 +245,11 @@ direct-publish access in January 2027**; rotate to OIDC-from-CI or interactive O
 
 **What each package's tarball contains** (constrained by `"files"` + `package.json` `"pi"` block):
 
-- `relay-code-pi`: `extensions/`, `skills/`, `agents/`, `prompts/`, `package.json`,
+- `relay-code-pi`: `extensions/`, `src/`, `skills/`, `agents/`, `prompts/`, `package.json`,
   `README.md`, `LICENSE`, **plus the bundled `node_modules/` of the 6 external pi packages**
-  (see the bundle note below). The `"pi"` block tells Pi which paths to register at install.
+  (see the bundle note below). `src/` must ship — `extensions/relay-tools.ts` imports
+  `../src/cores`; dropping it from the `"files"` whitelist would break every tool after
+  install. The `"pi"` block tells Pi which paths to register at install.
 
 **Why relay-code-pi must `bundleDependencies` its external pi packages.** The `pi` manifest
 references external pi packages via literal `node_modules/<pkg>` paths

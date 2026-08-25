@@ -4,9 +4,10 @@
 // ships in the scaffolded project AGENTS.md (written by relay-system-setup)
 // and loads as project context — it is not injected by a handler here.
 //
-// Convention-enforcing tools (relay_add_*) wrap their whole read-modify-write in
-// withFileMutationQueue and delegate the actual transform to a pure core in
-// ../src/cores (unit-tested). Action tools shell out via pi.exec or fetch — never
+// Convention-enforcing tools (relay_add_*) wrap their whole read-modify-write
+// in withFileMutationQueue via the shared mutateFile adapter below, and
+// delegate the actual transform to a pure core in ../src/cores (unit-tested).
+// Action tools shell out via pi.exec or fetch — never
 // MCP. relay_deploy_modal refuses until relay_smoke_test has written the
 // deploy-gate marker (the deploy-order gate).
 
@@ -48,6 +49,36 @@ export default function (pi: ExtensionAPI) {
     s.length > n ? "…" + s.slice(-n) : s;
   const NPM = process.platform === "win32" ? "npm.cmd" : "npm";
 
+  /**
+   * The mutation adapter — one typed seam for every read→pure-core→write
+   * mutation. Every relay_add_* tool mutates a project file through this
+   * helper, so withFileMutationQueue is never skipped and the content the pure
+   * core returns is exactly what lands on disk (read and write pair by
+   * construction). Returns the core's result plus `changed` (true when the
+   * file text actually changed) so call sites build "added vs already present"
+   * messages without a second read.
+   *
+   * The adapter is glue — it touches the filesystem and the mutation queue —
+   * so it lives here, not in ../src/cores. The cores stay pure
+   * `(content) => { content, ... }` functions, unit-tested with fixtures.
+   */
+  type Mutated<C> = C extends (content: string) => string
+    ? { content: string; changed: boolean }
+    : C extends (content: string) => infer R
+      ? R & { changed: boolean }
+      : never;
+  const mutateFile = <C extends (content: string) => string | { content: string }>(
+    filePath: string,
+    core: C,
+  ): Promise<Mutated<C>> =>
+    withFileMutationQueue(filePath, async () => {
+      const before = await readFile(filePath, "utf8");
+      const r = core(before);
+      const content = typeof r === "string" ? r : r.content;
+      await writeFile(filePath, content, "utf8");
+      return { ...(typeof r === "string" ? {} : r), content, changed: content !== before } as Mutated<C>;
+    });
+
   // =========================================================================
   // Convention-enforcing tools (withFileMutationQueue + pure cores)
   // =========================================================================
@@ -88,24 +119,17 @@ export default function (pi: ExtensionAPI) {
       const agentsPath = resolveContextFile(ctx.cwd);
       const agentsLabel = basename(agentsPath);
 
-      const cfg = await withFileMutationQueue(cfgPath, async () => {
-        const cur = await readFile(cfgPath, "utf8");
-        const r = cores.addEnvVarToConfig(cur, params);
-        await writeFile(cfgPath, r.content, "utf8");
-        return r;
-      });
+      const cfg = await mutateFile(cfgPath, (cur) => cores.addEnvVarToConfig(cur, params));
 
       let agentsLine = `${agentsLabel} env table not updated`;
       try {
-        await withFileMutationQueue(agentsPath, async () => {
-          const cur = await readFile(agentsPath, "utf8");
-          const next = cores.addEnvVarRowToAgents(cur, {
+        await mutateFile(agentsPath, (doc) =>
+          cores.addEnvVarRowToAgents(doc, {
             name: params.name,
             required: params.required,
             notes: params.agentsNotes,
-          });
-          await writeFile(agentsPath, next, "utf8");
-        });
+          }),
+        );
         agentsLine = `${agentsLabel} env table row added`;
       } catch (e) {
         agentsLine = `${agentsLabel} env table NOT updated: ${e instanceof Error ? e.message : String(e)}`;
@@ -140,14 +164,7 @@ export default function (pi: ExtensionAPI) {
     async execute(_id, params, signal, _onUpdate, ctx) {
       if (signal?.aborted) return text("Cancelled");
       const schemaPath = proj(ctx.cwd, "src/schema.ts");
-      const before = await readFile(schemaPath, "utf8");
-      const after = await withFileMutationQueue(schemaPath, async () => {
-        const cur = await readFile(schemaPath, "utf8");
-        const next = cores.addSchemaField(cur, params);
-        await writeFile(schemaPath, next, "utf8");
-        return next;
-      });
-      const changed = before !== after;
+      const { changed } = await mutateFile(schemaPath, (cur) => cores.addSchemaField(cur, params));
       return text(
         `${changed ? "Added" : "Already present"} ${params.namespace}.${params.key} = ${JSON.stringify(params.value)} in src/schema.ts.`,
       );
@@ -194,12 +211,9 @@ export default function (pi: ExtensionAPI) {
         taskLine = `scaffolded src/trigger/${params.id}.ts`;
       });
 
-      const sync = await withFileMutationQueue(bridgePath, async () => {
-        const cur = await readFile(bridgePath, "utf8");
-        const r = cores.syncAllowedTasks(cur, params.id, params.rowScoped ?? false);
-        await writeFile(bridgePath, r.content, "utf8");
-        return r;
-      });
+      const sync = await mutateFile(bridgePath, (cur) =>
+        cores.syncAllowedTasks(cur, params.id, params.rowScoped ?? false),
+      );
 
       return text(
         `${taskLine!}\n` +
@@ -292,14 +306,14 @@ export default function (pi: ExtensionAPI) {
     }),
     async execute(_id, params, signal, _onUpdate, ctx) {
       if (signal?.aborted) return text("Cancelled");
-      const piDir = proj(ctx.cwd, ".pi");
-      const pidPath = join(piDir, "relay-dev-worker.pid");
-      const logPath = join(piDir, "relay-dev-worker.log");
+      const piDir = proj(ctx.cwd, cores.RELAY_STATE_DIR);
+      const pidPath = join(piDir, cores.DEV_WORKER_PID_FILENAME);
+      const logPath = join(piDir, cores.DEV_WORKER_LOG_FILENAME);
       await mkdir(piDir, { recursive: true });
 
       const readPid = async (): Promise<number | null> => {
         try {
-          return parseInt((await readFile(pidPath, "utf8")).trim(), 10);
+          return cores.parsePidMarker(await readFile(pidPath, "utf8"));
         } catch {
           return null;
         }
@@ -315,7 +329,7 @@ export default function (pi: ExtensionAPI) {
 
       if (params.action === "status") {
         const pid = await readPid();
-        if (pid && alive(pid)) return text(`Dev worker running (pid ${pid}). Log: .pi/relay-dev-worker.log`);
+        if (pid && alive(pid)) return text(`Dev worker running (pid ${pid}). Log: ${cores.RELAY_STATE_DIR}/${cores.DEV_WORKER_LOG_FILENAME}`);
         return text("Dev worker not running.");
       }
 
@@ -353,27 +367,34 @@ export default function (pi: ExtensionAPI) {
       await writeFile(pidPath, String(pid), "utf8");
       child.unref();
 
-      // Poll the log for a readiness marker (bounded — never hang).
-      const ready = /registered|listening|worker.*ready|started\s+worker| Watching /i;
-      const deadline = Date.now() + 90000;
+      // Poll the log for a readiness marker (bounded — never hang). The verdict
+      // per round is a core; only the IO (readFile, liveness probe, sleep) is here.
+      const deadline = Date.now() + cores.DEV_WORKER_READY_DEADLINE_MS;
       let log = "";
       while (Date.now() < deadline) {
-        if (signal?.aborted) return text(`Cancelled. pid ${pid}. Log: .pi/relay-dev-worker.log`);
-        await sleep(2000, signal).catch(() => {});
+        if (signal?.aborted)
+          return text(`Cancelled. pid ${pid}. Log: ${cores.RELAY_STATE_DIR}/${cores.DEV_WORKER_LOG_FILENAME}`);
+        await sleep(cores.DEV_WORKER_POLL_INTERVAL_MS, signal).catch(() => {});
         try {
           log = await readFile(logPath, "utf8");
         } catch {
           log = "";
         }
-        if (ready.test(log)) {
+        const verdict = cores.devWorkerPollVerdict({
+          log,
+          alive: alive(pid),
+          deadlineExceeded: Date.now() >= deadline,
+        });
+        if (verdict.state === "ready") {
           return text(`Dev worker up (pid ${pid}). Ready.\n${tail(log, 800)}`);
         }
-        if (!alive(pid)) {
+        if (verdict.state === "exited") {
           return text(`Dev worker exited prematurely (pid ${pid}). Log:\n${tail(log)}`);
         }
+        if (verdict.state === "timeout") break;
       }
       return text(
-        `Dev worker launched (pid ${pid}) but no readiness marker seen within 90s. It may still be starting.\nLog tail:\n${tail(log)}`,
+        `Dev worker launched (pid ${pid}) but no readiness marker seen within ${cores.DEV_WORKER_READY_DEADLINE_MS / 1000}s. It may still be starting.\nLog tail:\n${tail(log)}`,
       );
     },
   });
@@ -476,21 +497,17 @@ export default function (pi: ExtensionAPI) {
         }
         status = String(rj.status ?? status).toUpperCase();
         onUpdate?.({ content: [{ type: "text", text: `run ${runId}: ${status}` }] });
-        if (status === "COMPLETED") break;
-        if (["FAILED", "CANCELED", "CRASHED", "SYSTEM_FAILURE"].includes(status)) break;
+        if (cores.isTerminalRunStatus(status)) break;
       }
 
       const s = status.toUpperCase();
       if (s === "COMPLETED") {
-        const gateDir = proj(ctx.cwd, ".pi");
+        const gateDir = proj(ctx.cwd, cores.RELAY_STATE_DIR);
         await mkdir(gateDir, { recursive: true });
+        const gate = cores.buildDeployGate(params.taskId, runId);
         await writeFile(
-          join(gateDir, "relay-deploy-gate.json"),
-          JSON.stringify(
-            { task: params.taskId, runId, status: "COMPLETED", ts: new Date().toISOString() },
-            null,
-            2,
-          ),
+          proj(ctx.cwd, cores.DEPLOY_GATE_RELATIVE_PATH),
+          JSON.stringify(gate, null, 2),
           "utf8",
         );
         return text(
@@ -515,18 +532,24 @@ export default function (pi: ExtensionAPI) {
     parameters: Type.Object({}),
     async execute(_id, _params, signal, _onUpdate, ctx) {
       if (signal?.aborted) return text("Cancelled");
-      const gatePath = proj(ctx.cwd, ".pi/relay-deploy-gate.json");
-      let gate: { status?: string; task?: string; runId?: string };
+      const gatePath = proj(ctx.cwd, cores.DEPLOY_GATE_RELATIVE_PATH);
+      let gateText: string;
       try {
-        gate = JSON.parse(await readFile(gatePath, "utf8"));
+        gateText = await readFile(gatePath, "utf8");
       } catch {
         throw new Error(
-          "relay_deploy_modal: deploy-gate marker (.pi/relay-deploy-gate.json) not found. " +
+          `relay_deploy_modal: deploy-gate marker (${cores.DEPLOY_GATE_RELATIVE_PATH}) not found. ` +
             "Run relay_deploy_trigger then relay_smoke_test (and pass) first. " +
-            "Deploy order: relay_deploy_trigger → relay_smoke_test → relay_deploy_modal.",
+            `Deploy order: ${cores.DEPLOY_ORDER}.`,
         );
       }
-      if (String(gate.status ?? "").toUpperCase() !== "COMPLETED") {
+      const gate = cores.parseDeployGate(gateText);
+      if (!gate) {
+        throw new Error(
+          `relay_deploy_modal: deploy-gate marker (${cores.DEPLOY_GATE_RELATIVE_PATH}) is corrupted. Re-run relay_smoke_test.`,
+        );
+      }
+      if (!cores.isGateDeployable(gate)) {
         throw new Error(
           `relay_deploy_modal: last smoke test did not pass (status: ${gate.status}). Fix the task and re-run relay_smoke_test.`,
         );

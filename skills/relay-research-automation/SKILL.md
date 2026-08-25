@@ -33,7 +33,7 @@ The user should describe the automation they have in mind. If they only typed `/
    - **Required environment variable names** (names only — never values).
    - **Schema changes needed per integration?** Ask separately for each integration the automation uses.
    - **Modal bridge involved?** If yes, which trigger source and whether the bridge call carries a `recordId` (must start with `rec`).
-   - **Which sub-agents should be used or created?** Default to the primary agents (`modal-agent`, `trigger-dev-agent`, `Explore`). Surface the add-on agents only when the source/destination system actually needs them. New agents are authored under `.claude/agents/<name>.md` with the `context7-cli` skill appended (see Sub-agent creation rule) before finishing the spec.
+   - **Which sub-agents should be used or created?** Default to the primary agents (`modal-agent`, `trigger-dev-agent`). Surface the add-on agents only when the source/destination system actually needs them. New agents are authored under `.claude/agents/<name>.md` with the `context7-cli` skill appended (see Sub-agent creation rule) before finishing the spec.
 
 3. **Validate slug uniqueness**
    - Confirm no existing task in `src/trigger/*.ts` exports `id: "<slug>"`. If there is a collision, ask for a different slug.
@@ -50,7 +50,7 @@ The user should describe the automation they have in mind. If they only typed `/
    - **Ambiguity:** could any requirement be read two ways? Pick one and make it explicit.
    - Fix issues inline; no re-review needed.
 
-7. **Write the spec** to `docs/specs/<slug>.md`:
+7. **Write the spec** to `docs/specs/<slug>.md` — the four frontmatter fields are the spec contract, enforced by `relay_lint` (package `src/cores.ts` `lintSpec`):
 
    ```markdown
    ---
@@ -106,7 +106,7 @@ The user should describe the automation they have in mind. If they only typed `/
    - Expected trigger URL / formula (owned by `airtable-agent`)
 
    ## Sub-agents
-   - Which agents implement this automation. Default to primary agents; add add-on agents as needed. Note any new agent created and its `skills:` list.
+   - Which agents implement this automation. Default to the primary agents; add add-on agents as needed. The roster names only the six domain agents — built-in types like `Explore` are research tools, not implementers, and `relay_lint` rejects them on a plan's `**Agents:**` line. Note any new agent created and its `skills:` list.
 
    ## Tests
    - Unit tests for pure transforms (if any).

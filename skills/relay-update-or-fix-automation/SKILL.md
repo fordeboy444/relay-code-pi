@@ -62,7 +62,7 @@ List `docs/plans/` for any `YYYY-MM-DD-<slug>-update-*.md`. For each, read the f
 
 ### 3. Read the parent spec and surface scope questions.
 
-Read `docs/specs/<slug>.md`. Confirm frontmatter has `slug:`, `name:`, `trigger_type:`, `created:`. The `slug:` value must equal the one the user passed.
+Read `docs/specs/<slug>.md`. Confirm frontmatter has `slug:`, `name:`, `trigger_type:`, `created:`. The `slug:` value must equal the one the user passed. These four fields are the spec contract, enforced by `relay_lint` (package `src/cores.ts` `lintSpec`).
 
 Ask the user any scope questions that cannot be inferred from the spec — **one at a time**, prefer multiple-choice via AskUserQuestion. Common ones:
 

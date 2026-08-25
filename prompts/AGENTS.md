@@ -98,7 +98,9 @@ Never reverse this order. The Modal bridge must read `.env.production` (prod), n
   `gohighlevel-agent`, `unipile-agent`, or `apify-agent`). Phase 3 execute
   → `docs/automations/<plan>/progress.md`. Each phase writes its artifact and stops.
   Run `relay_lint` after producing a spec/plan and before handoff — it enforces the
-  `status` values and `**Agents:**` names above deterministically.
+  `status` values and `**Agents:**` names above deterministically (canonical sets:
+  the relay-code-pi package's `src/cores.ts` — `PLAN_STATUS_VALUES`, `VALID_AGENT_NAMES`;
+  keep the two in sync).
 - Dispatch specialist sub-agents task-by-task via `pi-subagents`; a sub-agent failure
   halts the task (write to the ledger, do not proceed to deploy).
 - Doc-lookup order: local skill → context7-cli → web search. Never fall back to
@@ -130,7 +132,9 @@ the command are passed to the skill):
 ## Sub-agents (specialist dispatch)
 
 Six specialist sub-agents, dispatched task-by-task via `pi-subagents`. Every name on
-a plan's `**Agents:**` line must be one of these — `relay_lint` rejects anything else:
+a plan's `**Agents:**` line must be one of these — `relay_lint` rejects anything else.
+Canonical roster: the relay-code-pi package's `src/cores.ts` `VALID_AGENT_NAMES` —
+keep this list and the Lifecycle bullet in sync when the roster changes:
 
 - `trigger-dev-agent` — Trigger.dev tasks, `relay_add_task`, deploy order.
 - `modal-agent` — Modal.com `modal_bridge.py` and `relay_deploy_modal`.

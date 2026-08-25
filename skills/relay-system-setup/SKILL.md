@@ -1,6 +1,6 @@
 ---
 name: relay-system-setup
-description: First-run setup for a relay-code automation repo (Modal.com + Trigger.dev). Scaffolds an empty repo from bundled template files, verifies the three CLIs are installed and signed in (context7 → modal → trigger.dev), and captures the one cleartext identifier this skill owns: `TRIGGER_PROJECT_ID` (written to `trigger.config.ts`). Modal/Trigger.dev secrets are owned by the user's CLI sign-in and the user-level env-storage skill — this skill never captures or writes a secret value.
+description: "First-run setup for a relay-code automation repo (Modal.com + Trigger.dev). Scaffolds an empty repo from bundled template files, verifies the three CLIs are installed and signed in (context7 → modal → trigger.dev), and captures the one cleartext identifier this skill owns: `TRIGGER_PROJECT_ID` (written to `trigger.config.ts`). Modal/Trigger.dev secrets are owned by the user's CLI sign-in and the user-level env-storage skill — this skill never captures or writes a secret value."
 ---
 
 # relay-system-setup

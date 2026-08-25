@@ -99,7 +99,7 @@ If the final review returns findings, dispatch **one** fix agent with the comple
 
 ## Finish
 
-1. Update the plan frontmatter: `status: completed` (or `status: paused` if blocked).
+1. Update the plan frontmatter: `status: completed` (or `status: paused` if blocked) — both from the closed `PLAN_STATUS_VALUES` set (relay-code-pi package `src/cores.ts`), enforced by `relay_lint`.
 2. Ensure all task checkboxes are `- [x]`.
 3. Call **`relay_lint`** to confirm the finished plan + spec still conform; fix every error it reports and re-call until clean before deploying.
 4. Append a new subsection to `AGENTS.md`'s `### Automations` section using the template in the `<!-- … -->` block there (per-automation context): task id(s), trigger type, source → destination, required env vars, integration contracts, Modal bridge (`in ALLOWED_TASKS` + recordId yes/no), status, and notes. Do not invent fields the template doesn't define.
