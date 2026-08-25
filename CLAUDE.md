@@ -21,7 +21,7 @@ rather than prose for the model to follow.
 npm install            # resolve the Pi extension peer/deps under node_modules/
 npm test               # vitest run — pure-core unit tests (the primary gate; TS pipeline exercised here)
 npm run test:watch     # vitest watch
-pi -e .               # package-load smoke gate — expect SMOKE_OK (loads 10 tools + 7 extensions)
+pi -e .               # package-load smoke gate — expect SMOKE_OK (loads 10 relay tools + 8 extensions)
 pi -p "Reply with exactly SMOKE_OK and nothing else."   # full-stack host load check
 ```
 
@@ -198,15 +198,20 @@ direct-publish access in January 2027**; rotate to OIDC-from-CI or interactive O
    major for breaking changes to the Load/Update or scaffold contract.
 2. `npm pack --dry-run` — confirm only the intended files ship. For relay-code-pi that means
    `extensions/`, `skills/`, `agents/`, `prompts/`, plus `package.json` + `README.md` +
-   `LICENSE`. For env-storage-user-skill it means only what `package.json`'s `"files":
-   ["skills"]` allows (`skills/` + `package.json` + `README.md`). **Never** ship real
-   `.env` files — accidental `npm publish` of a secrets-bearing `.env` is unrecoverable.
+   `LICENSE`, **plus the bundled `node_modules/` of the 6 external pi packages** (`pi-subagents`,
+   `pi-background-tasks`, `pi-context-usage`, `@juicesharp/rpiv-ask-user-question`,
+   `@juicesharp/rpiv-todo`, `@llblab/pi-telegram` — see the bundle note below). The `npm pack`
+   dry-run summary prints `bundled files: 0`, which is a **misleading npm display bug**; the
+   real tarball *does* contain `node_modules/` (verify with `tar tzf <pkg>.tgz | grep node_modules`).
+   For env-storage-user-skill it means only what `package.json`'s `"files": ["skills"]`
+   allows (`skills/` + `package.json` + `README.md`). **Never** ship real `.env` files —
+   accidental `npm publish` of a secrets-bearing `.env` is unrecoverable.
 3. `npm publish`.
 4. Verify with `npm view <package>` — there is a registry propagation lag after publish.
    The HTTP PUT returns **202 Accepted** immediately, but the tarball then has to be uploaded
    to the CDN, indexed, and the `latest` dist-tag rolled forward. For a small package (~5
-   files, a few KB) it's usually ~30 seconds; for a large tarball (relay-code-pi at 6.7 MB /
-   6601 files) it took **25 minutes** in observed practice — plan for 10-30 minutes before
+   files, a few KB) it's usually ~30 seconds; for a large tarball (relay-code-pi at ~7.6 MB /
+   ~6.7k files, own + bundled `node_modules/`) it took **25 minutes** in observed practice — plan for 10-30 minutes before
    giving up. `npm view` will 404 the entire time, and `curl -sI https://registry.npmjs.org/<pkg>/-/<pkg>-<version>.tgz`
    will return 404. The publish itself was committed the moment npm's log showed
    `http fetch PUT 202` + `verbose exit 0` + `info ok` — that's the success signal; the
@@ -219,7 +224,26 @@ direct-publish access in January 2027**; rotate to OIDC-from-CI or interactive O
 **What each package's tarball contains** (constrained by `"files"` + `package.json` `"pi"` block):
 
 - `relay-code-pi`: `extensions/`, `skills/`, `agents/`, `prompts/`, `package.json`,
-  `README.md`, `LICENSE`. The `"pi"` block tells Pi which paths to register at install.
+  `README.md`, `LICENSE`, **plus the bundled `node_modules/` of the 6 external pi packages**
+  (see the bundle note below). The `"pi"` block tells Pi which paths to register at install.
+
+**Why relay-code-pi must `bundleDependencies` its external pi packages.** The `pi` manifest
+references external pi packages via literal `node_modules/<pkg>` paths
+(`node_modules/@llblab/pi-telegram/index.ts`, `node_modules/pi-subagents/skills`, …). Pi loads
+each installed package with its **own module root** and does **not** walk up to the shared
+parent `node_modules` ("separate module roots, so separate installs do not collide or share
+modules"). So a dep that npm **hoists** out of the package's own `node_modules` becomes
+invisible to Pi — its extension + skills silently fail to load (this is why `@llblab/pi-telegram`
+was missing after 0.5.5: it was hoisted, so `/skill:telegram-*` and its tools never registered).
+`bundleDependencies` forces all 6 listed packages (and their transitive deps) into the
+package's own `node_modules/` in the tarball, so the literal manifest paths always resolve.
+
+**Spelling gotcha — use `bundleDependencies` (no "d").** The older `bundledDependencies`
+spelling is **deprecated**: npm 9 warns, npm 10 **throws**. (That deprecation noise is what
+prompted 0.5.3 to delete the field entirely — the wrong cure; the right one was to rename it.)
+Keep the field spelled `bundleDependencies` and keep all 6 packages listed whenever you add or
+remove a `node_modules/<pkg>` reference from the `pi` manifest — a referenced-but-not-bundled
+package will hoist and silently fail to load.
 - `env-storage-user-skill`: only `skills/env-storage/{SKILL.md, assets/.env,
   assets/.env.production}` + `package.json` + `README.md` (the `"files": ["skills"]` field
   prevents the rest of the repo from going into the tarball). The `pi.skills: ["./skills"]`

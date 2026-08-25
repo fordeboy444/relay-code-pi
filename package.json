@@ -1,6 +1,6 @@
 {
   "name": "relay-code-pi",
-  "version": "0.5.4",
+  "version": "0.5.6",
   "description": "Pi coding agent for the Modal.com + Trigger.dev (relay-code) automation framework. Mirrors the framework's three-phase lifecycle and turns its conventions (lazy-env, schema contract, ALLOWED_TASKS sync, deploy order, secret handling) into enforced Pi tools.",
   "keywords": [
     "pi-package"
@@ -30,11 +30,13 @@
       "node_modules/pi-background-tasks/extensions/background-tasks.ts",
       "node_modules/@juicesharp/rpiv-ask-user-question/index.ts",
       "node_modules/@juicesharp/rpiv-todo/index.ts",
-      "node_modules/pi-context-usage/src/index.ts"
+      "node_modules/pi-context-usage/src/index.ts",
+      "node_modules/@llblab/pi-telegram/index.ts"
     ],
     "skills": [
       "./skills",
-      "node_modules/pi-subagents/skills"
+      "node_modules/pi-subagents/skills",
+      "node_modules/@llblab/pi-telegram/skills"
     ],
     "prompts": [
       "node_modules/pi-subagents/prompts"
@@ -48,10 +50,19 @@
   "dependencies": {
     "@juicesharp/rpiv-ask-user-question": "^2.7.0",
     "@juicesharp/rpiv-todo": "^2.7.0",
+    "@llblab/pi-telegram": "^0.39.2",
     "pi-background-tasks": "^2.4.2",
     "pi-context-usage": "^1.0.2",
     "pi-subagents": "^0.54.0"
   },
+  "bundleDependencies": [
+    "pi-subagents",
+    "pi-background-tasks",
+    "pi-context-usage",
+    "@juicesharp/rpiv-ask-user-question",
+    "@juicesharp/rpiv-todo",
+    "@llblab/pi-telegram"
+  ],
   "peerDependencies": {
     "@earendil-works/pi-agent-core": "*",
     "@earendil-works/pi-ai": "*",
@@ -62,6 +73,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "typescript": "^5.6.3",
+    "js-yaml": "^4.1.0",
     "vitest": "^2.1.8"
   },
   "scripts": {
