@@ -17,7 +17,11 @@ from modal import App, Image, Secret, asgi_app
 # Each id MUST match a task id exported from src/trigger/*.ts. Add row-scoped
 # tasks to TASK_REQUIRES_RECORD_ID too. relay_add_task syncs both sets —
 # never hand-edit them.
-ALLOWED_TASKS: set[str] = set()
+# "health-check" is scaffolded alongside src/trigger/health-check.ts so the
+# dev worker has a starter task and relay_smoke_test has a target. Replace
+# it (or remove + re-add via relay_add_task) once your first real
+# automation is ready.
+ALLOWED_TASKS: set[str] = {"health-check"}
 TASK_REQUIRES_RECORD_ID: set[str] = set()
 
 image = Image.debian_slim(python_version="3.11").pip_install("fastapi", "httpx")

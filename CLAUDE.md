@@ -72,32 +72,17 @@ the real framework template files; tests load them and assert the transformed ou
 
 ### What the package ships
 
-- **10 tools** (registered in `extensions/relay-tools.ts`): convention-enforcers
-  (`relay_add_env_var`, `relay_add_schema_field`, `relay_add_task`) that mutate the project's
-  `src/config.ts`, `src/schema.ts`, `modal_bridge.py`, and context-file env table; action tools
-  (`relay_locate_automation`, `relay_test`, `relay_dev_worker`, `relay_deploy_trigger`,
-  `relay_smoke_test`, `relay_deploy_modal`) that shell out or fetch — **never MCP**; and
-  `relay_lint` (conformance checker the agent self-calls on its own specs/plans).
-  A `/plan` **command** (not a tool — does not count toward the tool set) toggles Plannotator
-  plan mode via its event bus.
-- **Constitution** (`skills/relay-system-setup/references/templates/prompts/AGENTS.md`) — the
-  always-on ruleset (tool-use rules, deploy order, security invariants, lifecycle conventions).
-  `relay-system-setup` scaffolds it as the project-root `prompts/AGENTS.md`, which Pi
-  auto-discovers and bundles into the system prompt on every turn — there is **no**
-  `before_agent_start` injection handler. It carries **no project state**; per-project state
-  lives in `docs/automations/<plan>/progress.md`, and the agent reads it on demand via
-  `relay_locate_automation` (whose first output line is the progress banner). If you change a
-  rule in the template, it changes the agent's behavior in every project scaffolded after
-  that; already-scaffolded projects carry their own copy.
-- **Skills** (`skills/`) — the setup + lifecycle orchestration
-  (`relay-system-setup` → `relay-research-automation` → `relay-plan-automation` →
-  `relay-execute-or-resume-automation`), `relay-update-or-fix-automation` (delta vs an existing
-  spec/plan), `relay-sub-agent-builder` (author new sub-agents), and vendored integration API docs
-  (Modal, Trigger.dev, Airtable, GoHighLevel, Unipile, Google, Context7, Pi).
-- **6 sub-agents** (`agents/*.md`) — gated fan-out via `pi-subagents`:
-  `airtable-agent`, `apify-agent`, `gohighlevel-agent`, `modal-agent`, `trigger-dev-agent`,
-  `unipile-agent`. These are the only agent names `relay_lint` accepts on a plan's `**Agents:**`
-  lines (`VALID_AGENT_NAMES` in `src/cores.ts`).
+The `package.json` `"pi"` block is the manifest Pi reads — `extensions`, `skills`, `prompts`,
+`subagents` arrays. Adding a new tool/skill/agent means adding its path there. The 10 tools
+are registered in `extensions/relay-tools.ts`; their authoritative list and categories live
+there, not here.
+
+The **constitution** (`prompts/AGENTS.md` at the repo root) is the authoritative list of
+tool-use rules, deploy order, and security invariants — Pi auto-loads it into the system
+prompt on every turn. **That file is the rule book**; if a CLAUDE.md line and an AGENTS.md
+line disagree, AGENTS.md wins (it runs in the agent's prompt, CLAUDE.md runs in the
+developer's session). The constitution is no longer per-project scaffolded — Pi injects it
+from the installed package.
 
 ### The deploy-order gate (mechanically enforced, not advisory)
 
@@ -121,17 +106,32 @@ from the framework template — surface this to the user; do not patch it by han
 ### Scaffold templates ship as `*.template` (npm excludes bare dotfiles)
 
 `relay-system-setup` scaffolds a new project from `skills/relay-system-setup/references/templates/`.
-Three of those templates are dotfiles — `.gitignore`, `.env`, `.env.production` — that **cannot
-ship under their bare names**: npm always drops `.gitignore` from the tarball, and the bundled
-`.gitignore` (which doubles as the scaffolded project's `.gitignore`, so it must keep ignoring
-`.env` / `.env.production` to protect real project secrets) would also drop `.env` /
-`.env.production`. So they ship as `.gitignore.template` / `.env.template` /
-`.env.production.template`, and `relay-system-setup` Part 0 reads each `*.template` and writes it
-to the real target name. The `cp -r templates/. <root>` shortcut does **not** handle these three
-— they need a name-remapping Read→Write. Do not "fix" this by renaming them back to bare names or
-removing the ignore rules — either breaks shipping or leaks project secrets. `.env` and
-`.env.production` are comment-only stubs; real values reach them via `env-storage` (Load) or
-direct paste during `relay-system-setup`.
+Two of those templates are dotfiles — `.gitignore`, `.env` — that **cannot ship under their bare
+names**: npm always drops `.gitignore` from the tarball, and the bundled `.gitignore` (which
+doubles as the scaffolded project's `.gitignore`, so it must keep ignoring `.env` to protect real
+project secrets) would also drop `.env`. So they ship as `.gitignore.template` / `.env.template`,
+and `relay-system-setup` Part 0 reads each `*.template` and writes it to the real target name.
+The `cp -r templates/. <root>` shortcut does **not** handle these two — they need a name-remapping
+Read→Write. Do not "fix" this by renaming them back to bare names or removing the ignore rules —
+either breaks shipping or leaks project secrets. `.env` is a comment-only stub listing
+per-service env-var slots; real values reach `.env` and `.env.production` via the user-level
+`env-storage` skill (Load), which the user runs **after** `relay-system-setup` completes.
+
+### Template defaults: `maxDuration` and the starter task
+
+Two template-level defaults keep `npm run trigger:dev` clean from the first run
+(observed in 0.5.x: both were missing and the dev worker died with
+`Error: The "maxDuration" trigger.config option is now required, and must be at
+least 5 seconds` followed by `Error: No trigger files found`):
+
+- `trigger.config.ts` ships with `maxDuration: 300` (5 minutes — a safe default
+  for a starter automation). Trigger.dev CLI ≥ 4.5 requires this option; do not
+  remove it from the template. Individual tasks may override per-task.
+- `src/trigger/health-check.ts` ships as a real (not TODO) starter task and is
+  pre-registered in `modal_bridge.py`'s `ALLOWED_TASKS`. Without a trigger file
+  under `dirs`, the dev worker fails to start. The starter task also gives
+  `relay_smoke_test` a real target for the first deploy-order gate. Real
+  automations replace it (or add alongside via `relay_add_task`).
 
 ### Context-file resolution
 
@@ -140,13 +140,13 @@ Pi loads a project's context as `AGENTS.override.md` → `AGENTS.md` → `CLAUDE
 (`cores.pickContextFile`). A scaffolded relay-code project ships **no** root context file —
 the constitution lives in `prompts/AGENTS.md` (system-prompt injection, not a context file) —
 so the env-table write degrades gracefully (the env var still lands in `src/config.ts`, the
-authoritative record; the extension reports "env table NOT updated"). `.env` and
-`.env.production` are scaffolded as comment-only stubs (no `KEY=value` lines yet); real
-values reach them via the user-level `env-storage` skill (Load) or by direct paste, both
-done **before** `relay-system-setup`. The `.env` / `.env.production` templates under
-`skills/relay-system-setup/references/templates/` are user-edited (do not auto-edit them).
-`TRIGGER_PROJECT_ID`
-lives in `trigger.config.ts` (not `.env`).
+authoritative record; the extension reports "env table NOT updated"). `.env` is scaffolded as
+a comment-only stub (no `KEY=value` lines yet); real values reach it via the user-level
+`env-storage` skill (Load) or by direct paste, both done **before** `relay-system-setup`. The
+`.env.template` under `skills/relay-system-setup/references/templates/` is user-edited (do not
+auto-edit it). `.env.production` is no longer scaffolded — the user owns that file (load via
+`env-storage` Load or direct paste) if their automation needs it. `TRIGGER_PROJECT_ID` lives in
+`trigger.config.ts` (not `.env`).
 
 ## Conventions to follow when editing this repo
 
@@ -156,16 +156,10 @@ lives in `trigger.config.ts` (not `.env`).
 - **Windows is a first-class host** (`process.platform === "win32"` paths exist in the
   extension: `npm.cmd`, `taskkill /T /F`, `shell: true` for the detached dev worker). Don't
   remove them.
-- **Secrets are never echoed** — secret values live in `.env` / `.env.production`. The
-  `env-storage` skill is a **separate** Pi package (`env-storage-user-skill`), installed once
-  per machine at the user level (`~/.pi/agent/skills/env-storage/`, NOT shipped with this
-  package). The user runs `/skill:env-storage` (Load) BEFORE invoking `relay-system-setup`
-  to copy their master `.env` + `.env.production` into the project, OR pastes Modal +
-  Trigger.dev keys directly into the project's `.env` / `.env.production`. The agent never
-  types a secret value into a tool input. When describing secrets in tool output or docs,
-  confirm only the prefix (`tr_dev_…`, `tr_prod_…`, `ak-…`, `as-…`).
-- `.pi/` is git-ignored runtime scratch (dev-worker pid/log, deploy-gate marker, lint report);
-  never commit it.
+- **Secrets handling is governed by the constitution** — see `prompts/AGENTS.md`
+  (Security invariants + the `env-storage` references in Skills). The agent never types a
+  secret value into a tool input; when describing secrets in tool output or docs, confirm
+  only the prefix (`tr_dev_…`, `tr_prod_…`, `ak-…`, `as-…`).
 - The `package.json` `"pi"` block is the manifest Pi reads — `extensions`, `skills`, `prompts`,
   `subagents` arrays. Adding a new extension/skill/agent means adding its path here.
 
@@ -173,9 +167,9 @@ lives in `trigger.config.ts` (not `.env`).
 
 - `docs/e2e-runbook.md` — the account-gated end-to-end run (Trigger.dev + Modal + Airtable).
 - `docs/superpowers/specs/2026-08-22-relay-code-pi-design.md` — the design doc.
-- `skills/relay-system-setup/references/templates/prompts/AGENTS.md` — the constitution
-  template; `relay-system-setup` scaffolds it as the project-root `prompts/AGENTS.md`. The
-  authoritative list of tool-use rules.
+- `prompts/AGENTS.md` — the constitution (repo root, also shipped in the npm tarball);
+  the authoritative list of tool-use rules. Pi auto-injects it into the system prompt on
+  every turn.
 
 ## Publishing this package (and its sibling `env-storage-user-skill`)
 
@@ -208,9 +202,19 @@ direct-publish access in January 2027**; rotate to OIDC-from-CI or interactive O
    ["skills"]` allows (`skills/` + `package.json` + `README.md`). **Never** ship real
    `.env` files — accidental `npm publish` of a secrets-bearing `.env` is unrecoverable.
 3. `npm publish`.
-4. Verify with `npm view <package>` — there is a ~5s registry propagation lag right after
-   publish (the first `npm view` may 404; just retry). Confirm `version`, `maintainers`, and
-   `dist.tarball` (a fresh `registry.npmjs.org/...` URL with a new `shasum` integrity hash).
+4. Verify with `npm view <package>` — there is a registry propagation lag after publish.
+   The HTTP PUT returns **202 Accepted** immediately, but the tarball then has to be uploaded
+   to the CDN, indexed, and the `latest` dist-tag rolled forward. For a small package (~5
+   files, a few KB) it's usually ~30 seconds; for a large tarball (relay-code-pi at 6.7 MB /
+   6601 files) it took **25 minutes** in observed practice — plan for 10-30 minutes before
+   giving up. `npm view` will 404 the entire time, and `curl -sI https://registry.npmjs.org/<pkg>/-/<pkg>-<version>.tgz`
+   will return 404. The publish itself was committed the moment npm's log showed
+   `http fetch PUT 202` + `verbose exit 0` + `info ok` — that's the success signal; the
+   long wait is CDN/index propagation, not a publish failure. **Do NOT re-run `npm publish`
+   while waiting** — the version is committed server-side and a retry will fail with
+   `EPUBLISH` the moment the original surfaces. Confirm `version`, `maintainers`, and
+   `dist.tarball` (a fresh `registry.npmjs.org/...` URL with a new `shasum` integrity hash)
+   once they appear.
 
 **What each package's tarball contains** (constrained by `"files"` + `package.json` `"pi"` block):
 

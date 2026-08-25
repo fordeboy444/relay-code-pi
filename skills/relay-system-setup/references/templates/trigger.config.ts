@@ -8,4 +8,7 @@ export default defineConfig({
   runtime: "node",
   logLevel: "log",
   dirs: ["./src/trigger"],
+  // Required since @trigger.dev/* 4.5.x — must be at least 5 seconds.
+  // 5 minutes is a safe default for a starter automation; tune per task in src/trigger/<id>.ts.
+  maxDuration: 300,
 });
