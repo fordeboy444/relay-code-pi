@@ -10,11 +10,19 @@ handling) from advisory prose into **enforced, deterministic Pi tools**.
 
 ## Install
 
+Project-local (recommended — installs to `.pi/settings.json`, shareable with your team, auto-installs on trust):
+
 ```sh
-pi install npm:relay-code-pi@latest  # from the npm gallery
-# or, project-local from a checkout:
-pi install -l ./relay-code-pi
+pi install npm:relay-code-pi@latest -l
 ```
+
+Global (installs to `~/.pi/agent/settings.json`):
+
+```sh
+pi install npm:relay-code-pi@latest
+```
+
+Use `-l` for project-local (writes `.pi/settings.json`, shareable with your team, auto-installs on trust). Drop `-l` for the global user install.
 
 Requires [Pi](https://pi.dev) ≥ 0.80.6 (for `@narumitw/pi-goal` `agent_settled`).
 
@@ -42,8 +50,12 @@ Requires [Pi](https://pi.dev) ≥ 0.80.6 (for `@narumitw/pi-goal` `agent_settled
 
 - `relay_deploy_modal` **refuses** until `relay_smoke_test` writes the
   deploy-gate marker — the deploy order is mechanically enforced, not advisory.
-- Secret values live in `.env` / `.env.production`, written by the
-  `.env-storage` skill — the agent never types a secret value into a tool
+- Secret values live in `.env` / `.env.production`. The user installs the
+  user-level `env-storage` skill at `~/.pi/agent/skills/env-storage/` (a
+  separate Pi skill, **not shipped with this package**) and runs
+  `/skill:env-storage` (Load) BEFORE invoking `relay-system-setup` — or
+  pastes Modal + Trigger.dev keys directly into the project's `.env` /
+  `.env.production`. The agent never types a secret value into a tool
   input, so secrets never enter the model context.
 - File-mutating tools run inside `withFileMutationQueue` and throw on a
   missing anchor rather than silently corrupting a hand-edited file.
@@ -58,6 +70,37 @@ pi -e .           # package-load smoke gate (expect SMOKE_OK)
 
 See `docs/e2e-runbook.md` for the account-gated end-to-end run, and
 `docs/superpowers/specs/2026-08-22-relay-code-pi-design.md` for the design.
+
+## Installing env-storage
+
+The `env-storage` skill is a **separate** Pi package (`env-storage-user-skill`),
+installed once per machine at the user level. It does NOT ship with this
+package. To install:
+
+```sh
+pi install npm:env-storage-user-skill@latest
+```
+
+The skill content is dropped into `~/.pi/agent/skills/env-storage/`, where
+Pi auto-discovers it globally. From any project, run `/skill:env-storage`
+to **Load** the user's master `.env` + `.env.production` secrets into the
+project, or **Update** the masters from the project. Run Load **before**
+invoking `/skill:relay-system-setup`.
+
+## Upgrading from ≤ 0.4.1
+
+Earlier versions of `relay-code-pi` shipped `skills/env-storage/` inside
+the package. That folder is now removed — `pi update` / `npm update` of
+this package will no longer carry the skill. If you relied on the
+package-shipped env-storage skill, install it separately:
+
+```sh
+pi install npm:env-storage-user-skill@latest
+```
+
+Existing user-data masters at `~/.pi/agent/skills/env-storage/.env` and
+`.env.production` are preserved across the upgrade — the new package
+install only adds the skill files (`SKILL.md` + `assets/`).
 
 ## License
 

@@ -69,8 +69,13 @@ Never reverse this order. The Modal bridge must read `.env.production` (prod), n
 
 ## Security invariants
 
-- Secret values live in `.env` / `.env.production` only, written by the `.env-storage`
-  skill. The agent never types a secret value into a tool input.
+- Secret values live in `.env` / `.env.production` only. The **env-storage**
+  skill (a separate npm package, `env-storage-user-skill`, installed at
+  `~/.pi/agent/skills/env-storage/`, NOT shipped with this package) loads
+  Modal + Trigger.dev master secrets into the project on demand — the user
+  runs `/skill:env-storage` (Load) BEFORE invoking `relay-system-setup`,
+  or pastes keys directly. The agent never types a secret value into a
+  tool input.
 - Never pass `--project-ref` on the Trigger.dev CLI — it reads `TRIGGER_PROJECT_ID`.
 - `TRIGGER_PROJECT_ID` lives in `trigger.config.ts` (`project:` field), **not** `.env` or
   `.env.production` — the Trigger.dev CLI reads it from there. The `relay-system-setup`
@@ -105,8 +110,11 @@ Six relay-code skills drive the lifecycle, each invoked as `/skill:<name>` (args
 the command are passed to the skill):
 
 - `relay-system-setup` — first run: scaffold an empty repo from bundled templates,
-  capture the project identity, and write `TRIGGER_PROJECT_ID` into `trigger.config.ts`.
-  Secrets are loaded via the `.env-storage` skill, never typed by the agent.
+  capture the project identity (Trigger.dev project ID + automation name), and
+  write `TRIGGER_PROJECT_ID` into `trigger.config.ts`. Modal + Trigger.dev
+  keys are loaded BEFORE running this skill via the user-level `env-storage`
+  skill (Load), or pasted directly into `.env` / `.env.production`. The agent
+  never types a secret value.
 - `relay-research-automation` — Phase 1 (research): explore the automation and write
   `docs/specs/<slug>.md` (no code).
 - `relay-plan-automation` — Phase 2 (plan): write `docs/plans/YYYY-MM-DD-<slug>.md`

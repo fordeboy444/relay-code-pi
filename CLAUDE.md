@@ -5,7 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this repository is
 
 `relay-code-pi` is a **Pi coding-agent package** — an extension bundle installed into the
-[Pi](https://pi.dev) agent (`pi install npm:relay-code-pi@latest` or `pi install -l ./relay-code-pi`)
+[Pi](https://pi.dev) agent (`pi install npm:relay-code-pi@latest -l` for project-local, or
+`pi install npm:relay-code-pi@latest` for the global user install)
 to help a non-expert build and deploy **relay-code** automations (Modal.com + Trigger.dev).
 It is *not* a standalone app and *not* an automation project itself; it ships the tools, skills,
 agents, and constitution that Pi uses *inside* a relay-code project's working directory.
@@ -39,6 +40,12 @@ There is no build step; `noEmit: true`.
 
 There is no account-gated E2E test in CI. The account-gated run (real Trigger.dev + Modal +
 Airtable) is manual — see `docs/e2e-runbook.md`, run once per release.
+
+A local-check gotcha: if `npm:relay-code-pi@latest` is in your Pi `settings.json` (the global
+install), running `pi` from inside this checkout loads the package **twice** (global + local) and
+the duplicate tool registrations conflict. For a clean local smoke gate, run `pi -e .` with an
+isolated `HOME`, or drop the `packages` entry from `settings.json` while developing locally.
+`pi -p` needs Pi OAuth credentials (the account-gated check); it can't run unauthenticated.
 
 ## Architecture
 
@@ -111,6 +118,21 @@ pure cores detect "already present" before mutating. They throw on a **missing a
 hand-edited file. A tool reporting a missing anchor means the project file was hand-edited away
 from the framework template — surface this to the user; do not patch it by hand.
 
+### Scaffold templates ship as `*.template` (npm excludes bare dotfiles)
+
+`relay-system-setup` scaffolds a new project from `skills/relay-system-setup/references/templates/`.
+Three of those templates are dotfiles — `.gitignore`, `.env`, `.env.production` — that **cannot
+ship under their bare names**: npm always drops `.gitignore` from the tarball, and the bundled
+`.gitignore` (which doubles as the scaffolded project's `.gitignore`, so it must keep ignoring
+`.env` / `.env.production` to protect real project secrets) would also drop `.env` /
+`.env.production`. So they ship as `.gitignore.template` / `.env.template` /
+`.env.production.template`, and `relay-system-setup` Part 0 reads each `*.template` and writes it
+to the real target name. The `cp -r templates/. <root>` shortcut does **not** handle these three
+— they need a name-remapping Read→Write. Do not "fix" this by renaming them back to bare names or
+removing the ignore rules — either breaks shipping or leaks project secrets. `.env` and
+`.env.production` are comment-only stubs; real values reach them via `env-storage` (Load) or
+direct paste during `relay-system-setup`.
+
 ### Context-file resolution
 
 Pi loads a project's context as `AGENTS.override.md` → `AGENTS.md` → `CLAUDE.md` (default
@@ -118,7 +140,12 @@ Pi loads a project's context as `AGENTS.override.md` → `AGENTS.md` → `CLAUDE
 (`cores.pickContextFile`). A scaffolded relay-code project ships **no** root context file —
 the constitution lives in `prompts/AGENTS.md` (system-prompt injection, not a context file) —
 so the env-table write degrades gracefully (the env var still lands in `src/config.ts`, the
-authoritative record; the extension reports "env table NOT updated"). `TRIGGER_PROJECT_ID`
+authoritative record; the extension reports "env table NOT updated"). `.env` and
+`.env.production` are scaffolded as comment-only stubs (no `KEY=value` lines yet); real
+values reach them via the user-level `env-storage` skill (Load) or by direct paste, both
+done **before** `relay-system-setup`. The `.env` / `.env.production` templates under
+`skills/relay-system-setup/references/templates/` are user-edited (do not auto-edit them).
+`TRIGGER_PROJECT_ID`
 lives in `trigger.config.ts` (not `.env`).
 
 ## Conventions to follow when editing this repo
@@ -129,10 +156,14 @@ lives in `trigger.config.ts` (not `.env`).
 - **Windows is a first-class host** (`process.platform === "win32"` paths exist in the
   extension: `npm.cmd`, `taskkill /T /F`, `shell: true` for the detached dev worker). Don't
   remove them.
-- **Secrets are never echoed** — secret values live in `.env` / `.env.production`, written by
-  the `.env-storage` skill; the agent never types a secret value into a tool input. When
-  describing secrets in tool output or docs, confirm only the prefix (`tr_dev_…`, `tr_prod_…`,
-  `ak-…`, `as-…`).
+- **Secrets are never echoed** — secret values live in `.env` / `.env.production`. The
+  `env-storage` skill is a **separate** Pi package (`env-storage-user-skill`), installed once
+  per machine at the user level (`~/.pi/agent/skills/env-storage/`, NOT shipped with this
+  package). The user runs `/skill:env-storage` (Load) BEFORE invoking `relay-system-setup`
+  to copy their master `.env` + `.env.production` into the project, OR pastes Modal +
+  Trigger.dev keys directly into the project's `.env` / `.env.production`. The agent never
+  types a secret value into a tool input. When describing secrets in tool output or docs,
+  confirm only the prefix (`tr_dev_…`, `tr_prod_…`, `ak-…`, `as-…`).
 - `.pi/` is git-ignored runtime scratch (dev-worker pid/log, deploy-gate marker, lint report);
   never commit it.
 - The `package.json` `"pi"` block is the manifest Pi reads — `extensions`, `skills`, `prompts`,
@@ -145,3 +176,55 @@ lives in `trigger.config.ts` (not `.env`).
 - `skills/relay-system-setup/references/templates/prompts/AGENTS.md` — the constitution
   template; `relay-system-setup` scaffolds it as the project-root `prompts/AGENTS.md`. The
   authoritative list of tool-use rules.
+
+## Publishing this package (and its sibling `env-storage-user-skill`)
+
+`relay-code-pi` is published as `npm:relay-code-pi`; its sibling user-level skill is published
+as `npm:env-storage-user-skill`. Both publish flows are identical.
+
+**Auth — granular access token with Bypass-2FA.** The maintainer account has 2FA enabled, so
+`npm login` + `npm publish` from a non-interactive shell fails with `code EOTP`. Use a
+**granular access token** (legacy "Automation" tokens were killed in November 2025) with
+**Bypass-2FA** enabled at creation, restricted to **publish only this package** and **only to
+the `latest` dist-tag**. Register it once per machine:
+
+```sh
+npm config set //registry.npmjs.org/:_authToken=npm_xxxxxxxxxxxxxxxxxxxx
+```
+
+npm writes the line to `~/.npmrc` silently — `npm config get` returns `protected` rather than
+the value, by design. **Revoke the token on https://www.npmjs.com → Access Tokens when you
+stop using it** — Bypass-2FA tokens are high-value credentials. Note: Bypass-2FA tokens **lose
+direct-publish access in January 2027**; rotate to OIDC-from-CI or interactive OTP before then.
+
+**Per-version publish.** From the package root (`relay-code-pi/` or `env-storage-user-skill/`):
+
+1. Bump `version` in `package.json` by hand (never `npm version` on a Pi package — keep the
+   diff reviewable). Patch for typo / copy fixes, minor for new SKILL.md sections or assets,
+   major for breaking changes to the Load/Update or scaffold contract.
+2. `npm pack --dry-run` — confirm only the intended files ship. For relay-code-pi that means
+   `extensions/`, `skills/`, `agents/`, `prompts/`, plus `package.json` + `README.md` +
+   `LICENSE`. For env-storage-user-skill it means only what `package.json`'s `"files":
+   ["skills"]` allows (`skills/` + `package.json` + `README.md`). **Never** ship real
+   `.env` files — accidental `npm publish` of a secrets-bearing `.env` is unrecoverable.
+3. `npm publish`.
+4. Verify with `npm view <package>` — there is a ~5s registry propagation lag right after
+   publish (the first `npm view` may 404; just retry). Confirm `version`, `maintainers`, and
+   `dist.tarball` (a fresh `registry.npmjs.org/...` URL with a new `shasum` integrity hash).
+
+**What each package's tarball contains** (constrained by `"files"` + `package.json` `"pi"` block):
+
+- `relay-code-pi`: `extensions/`, `skills/`, `agents/`, `prompts/`, `package.json`,
+  `README.md`, `LICENSE`. The `"pi"` block tells Pi which paths to register at install.
+- `env-storage-user-skill`: only `skills/env-storage/{SKILL.md, assets/.env,
+  assets/.env.production}` + `package.json` + `README.md` (the `"files": ["skills"]` field
+  prevents the rest of the repo from going into the tarball). The `pi.skills: ["./skills"]`
+  manifest tells Pi to auto-discover the `skills/env-storage/` subfolder and install it at the
+  user level (`~/.pi/agent/skills/env-storage/`).
+
+**Re-install safety.** A user re-running `pi install npm:env-storage-user-skill@latest` gets
+fresh `SKILL.md` + `assets/` from the tarball but the **user-data `.env` + `.env.production`
+masters at `~/.pi/agent/skills/env-storage/` are never touched** — Pi's package install only
+manages skill files, not user data. Same protection for relay-code-pi: a re-install overwrites
+the project's `extensions/`, `skills/`, `agents/`, `prompts/`, but never the project's own
+`.env` / `.env.production`.
