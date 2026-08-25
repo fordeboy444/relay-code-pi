@@ -102,6 +102,31 @@ Existing user-data masters at `~/.pi/agent/skills/env-storage/.env` and
 `.env.production` are preserved across the upgrade — the new package
 install only adds the skill files (`SKILL.md` + `assets/`).
 
+## Version history
+
+Current version: **0.5.6**. The publish flow keeps this table in sync — every release appends
+a row (see `CLAUDE.md` → Publishing). Versions marked "(published; no matching git commit —
+pre-reconcile drift)" exist on npm but were never recorded as a git commit on `main`; do not
+create commits or tags for them retroactively.
+
+| Version | What changed |
+| --- | --- |
+| 0.1.0 | Initial release — deterministic relay-code tools, lifecycle skills, 6 sub-agents, and the constitution. |
+| 0.1.1 | Bundled third-party pi-extensions into the tarball so they load after `pi install`; added the `files` whitelist + MIT LICENSE. |
+| 0.2.0 | Restructured lifecycle skills (consultation / plan / execute / sub-agent-builder); added the `apify-actor-development` skill; dropped the Telegram extension; stopped tracking `.pyc` bytecode. |
+| 0.2.1 | Bundled `pi-context-usage` for `/context` visualization. |
+| 0.3.0 | Dropped `before_agent_start` constitution injection and the bundled pi-goal / plannotator / pi-web-access packages. |
+| 0.3.1 | Fixed the published tarball to include `patches/`. |
+| 0.4.0 | Removed pi-secret-mask; shipped the `.env-storage` skill in-package; moved the constitution into `prompts/`. |
+| 0.4.1 | Scaffolded dotfiles now ship as `*.template` (npm drops bare dotfiles); `.env-storage` now manages `.env.production`. |
+| 0.5.0 | Split `env-storage` into its own user-level npm package (`env-storage-user-skill`) and dropped it from this package. |
+| 0.5.1 | (published; no matching git commit — pre-reconcile drift) |
+| 0.5.2 | (published; no matching git commit — pre-reconcile drift) |
+| 0.5.3 | Deleted the dependency-bundling field (deprecated-spelling cleanup); added the pi-claude-marketplace extension; added the `health-check` starter task and `maxDuration` defaults to the scaffold; added `prompts/` to the publish whitelist. |
+| 0.5.4 | Dropped the pi-claude-marketplace extension added in 0.5.3 (no consumer in the package). |
+| 0.5.5 | (published; no matching git commit — pre-reconcile drift; the release in which `@llblab/pi-telegram` was re-added without `bundleDependencies`, so it hoisted and its tools stopped loading) |
+| 0.5.6 | Restored `bundleDependencies` (correct spelling, all 6 external pi packages listed) and re-added `@llblab/pi-telegram` to the manifest, fixing the pi-telegram load failure that first appeared after 0.5.5. |
+
 ## License
 
 MIT

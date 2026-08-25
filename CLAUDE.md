@@ -15,6 +15,15 @@ The package turns the framework's advisory conventions (lazy-env, schema contrac
 `ALLOWED_TASKS` sync, deploy order, secret handling) into **enforced, deterministic Pi tools**
 rather than prose for the model to follow.
 
+## Start every task by loading the `pi-api` skill
+
+Before any task, load the **`pi-api` skill** (`.claude/skills/pi-api/SKILL.md`) — no
+exceptions. Every task in this repo is Pi-related (the Pi CLI, `pi install` / `pi run`, the
+`package.json` `"pi"` manifest), and the skill's `references/` documents the current CLI
+surface instead of training-data guesses. Scan the command table in `SKILL.md`, then read the
+relevant `references/*.md` file before answering anything about Pi commands, flags,
+install/auth, or configuration.
+
 ## Commands
 
 ```sh
@@ -196,7 +205,19 @@ direct-publish access in January 2027**; rotate to OIDC-from-CI or interactive O
 1. Bump `version` in `package.json` by hand (never `npm version` on a Pi package — keep the
    diff reviewable). Patch for typo / copy fixes, minor for new SKILL.md sections or assets,
    major for breaking changes to the Load/Update or scaffold contract.
-2. `npm pack --dry-run` — confirm only the intended files ship. For relay-code-pi that means
+2. Update the README **Version history** table — append a row for the new version.
+3. Commit, tag, and push the release on `main` — **every npm version must exist on GitHub**.
+   A version published with no matching git commit is unrecoverable drift (see the
+   0.5.1/0.5.2/0.5.5 rows in the README):
+   ```sh
+   git add package.json README.md    # add ONLY the release files — never `git add -A`
+   git commit -m "0.6.0"             # bare version, matching the existing convention
+   git tag v0.6.0
+   git push origin main && git push origin --tags
+   ```
+   (Optional pre-flight: `npm pack --dry-run` before committing catches a bad `files` list
+   early; the required order is commit → tag → push → dry-run → publish.)
+4. `npm pack --dry-run` — confirm only the intended files ship. For relay-code-pi that means
    `extensions/`, `skills/`, `agents/`, `prompts/`, plus `package.json` + `README.md` +
    `LICENSE`, **plus the bundled `node_modules/` of the 6 external pi packages** (`pi-subagents`,
    `pi-background-tasks`, `pi-context-usage`, `@juicesharp/rpiv-ask-user-question`,
@@ -206,8 +227,8 @@ direct-publish access in January 2027**; rotate to OIDC-from-CI or interactive O
    For env-storage-user-skill it means only what `package.json`'s `"files": ["skills"]`
    allows (`skills/` + `package.json` + `README.md`). **Never** ship real `.env` files —
    accidental `npm publish` of a secrets-bearing `.env` is unrecoverable.
-3. `npm publish`.
-4. Verify with `npm view <package>` — there is a registry propagation lag after publish.
+5. `npm publish`.
+6. Verify with `npm view <package>` — there is a registry propagation lag after publish.
    The HTTP PUT returns **202 Accepted** immediately, but the tarball then has to be uploaded
    to the CDN, indexed, and the `latest` dist-tag rolled forward. For a small package (~5
    files, a few KB) it's usually ~30 seconds; for a large tarball (relay-code-pi at ~7.6 MB /
