@@ -30,6 +30,7 @@ install/auth, or configuration.
 npm install            # resolve the Pi extension peer/deps under node_modules/
 npm test               # vitest run — pure-core unit tests (the primary gate; TS pipeline exercised here)
 npm run test:watch     # vitest watch
+pi install . -l        # set up this repo as a project-local Pi package (writes .pi/settings.json)
 pi -e .               # package-load smoke gate — expect SMOKE_OK (loads 10 relay tools + 8 extensions)
 pi -p "Reply with exactly SMOKE_OK and nothing else."   # full-stack host load check
 ```
@@ -53,8 +54,9 @@ Airtable) is manual, run once per release.
 
 A local-check gotcha: if `npm:relay-code-pi@latest` is in your Pi `settings.json` (the global
 install), running `pi` from inside this checkout loads the package **twice** (global + local) and
-the duplicate tool registrations conflict. For a clean local smoke gate, run `pi -e .` with an
-isolated `HOME`, or drop the `packages` entry from `settings.json` while developing locally.
+the duplicate tool registrations conflict. To avoid this while developing locally (using
+`pi install . -l`), drop the `packages` entry from your global `settings.json`. For a one-time
+smoke gate without modifying settings, use `pi -e .` with an isolated `HOME`.
 `pi -p` needs Pi OAuth credentials (the account-gated check); it can't run unauthenticated.
 
 ## Architecture

@@ -38,11 +38,10 @@ Requires [Pi](https://pi.dev) ≥ 0.80.6 (for `@narumitw/pi-goal` `agent_settled
   (`relay-system-setup` / `relay-research-automation` / `relay-plan-automation` /
   `relay-execute-or-resume-automation` / `relay-update-or-fix-automation` /
   `relay-sub-agent-builder`) and vendored integration API docs.
-- **Constitution** — the framework's security rules and deploy order, scaffolded by
-  `relay-system-setup` as the project-root `prompts/AGENTS.md`, which Pi auto-discovers
-  and bundles into the system prompt every turn. It carries no project state; per-project
-  progress lives in `docs/automations/<plan>/progress.md`, read on demand via
-  `relay_locate_automation`.
+- **Constitution** — the framework's security rules and deploy order, shipped in the
+  package as `prompts/AGENTS.md`, which Pi injects from the installed package into the
+  system prompt every turn. It carries no project state; per-project progress lives in
+  `docs/automations/<plan>/progress.md`, read on demand via `relay_locate_automation`.
 - **6 sub-agents** (`agents/`) — gated fan-out via `pi-subagents`
   (airtable, apify, gohighlevel, modal, trigger-dev, unipile).
 
@@ -101,7 +100,7 @@ install only adds the skill files (`SKILL.md` + `assets/`).
 
 ## Version history
 
-Current version: **0.5.7**. The publish flow keeps this table in sync — every release appends
+Current version: **0.6.0**. The publish flow keeps this table in sync — every release appends
 a row (see `CLAUDE.md` → Publishing). Versions marked "(published; no matching git commit —
 pre-reconcile drift)" exist on npm but were never recorded as a git commit on `main`; do not
 create commits or tags for them retroactively.
@@ -124,6 +123,7 @@ create commits or tags for them retroactively.
 | 0.5.5 | (published; no matching git commit — pre-reconcile drift; the release in which `@llblab/pi-telegram` was re-added without `bundleDependencies`, so it hoisted and its tools stopped loading) |
 | 0.5.6 | Restored `bundleDependencies` (correct spelling, all 6 external pi packages listed) and re-added `@llblab/pi-telegram` to the manifest, fixing the pi-telegram load failure that first appeared after 0.5.5. |
 | 0.5.7 | Architecture deepening from the codebase review (no behavior change): deploy-gate + dev-worker state machines moved into pure cores (`src/cores.ts`), new `mutateFile` mutation adapter in the tool glue, spec/plan/roster/deploy-order prose anchored to their canonical constants, and the six-agent "Context — where to look" preamble template aligned to the shipped agents. |
+| 0.6.0 | Dev-docs updates (no behavior change): documented `pi install . -l` project-local setup and clarified the local-check gotcha for running `pi` from inside the checkout. |
 
 ## License
 

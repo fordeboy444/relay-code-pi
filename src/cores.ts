@@ -521,7 +521,7 @@ export function parseDotenv(text: string): Record<string, string> {
 //
 // The relay_lint tool (in extensions/relay-tools.ts) reads docs/specs and
 // docs/plans from the project cwd and runs these pure checks. The rules mirror
-// the project AGENTS.md (the constitution relay-system-setup scaffolds) and
+// the constitution (prompts/AGENTS.md) and
 // the relay-plan / relay-execute skills: every plan
 // carries `status` frontmatter from a closed set and an `**Agents:** <name>`
 // line per task naming only the six ported domain agents; every spec carries

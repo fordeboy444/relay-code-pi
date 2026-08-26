@@ -1,8 +1,8 @@
 // relay-code-pi — the Pi extension factory.
 //
 // One file, one default export, many pi.registerTool calls. The constitution
-// ships in the scaffolded project AGENTS.md (written by relay-system-setup)
-// and loads as project context — it is not injected by a handler here.
+// ships in the package's prompts/AGENTS.md (injected by Pi from the installed
+// package) — it is not injected by a handler here.
 //
 // Convention-enforcing tools (relay_add_*) wrap their whole read-modify-write
 // in withFileMutationQueue via the shared mutateFile adapter below, and
@@ -28,9 +28,9 @@ export default function (pi: ExtensionAPI) {
   const proj = (cwd: string, rel: string): string => resolve(cwd, rel);
   // Pick the project context file the way Pi loads it (AGENTS.override.md →
   // AGENTS.md → CLAUDE.md, default AGENTS.md) — see cores.pickContextFile. Lets
-  // the env-table tool write to the project AGENTS.md that relay-system-setup
-  // scaffolds (which ships AGENTS.md, merged with the constitution) without a
-  // manual rename.
+  // the env-table tool write to the project context file without a manual
+  // rename. A scaffolded relay-code project ships no root context file, so the
+  // write degrades gracefully (the env var still lands in src/config.ts).
   const resolveContextFile = (cwd: string): string =>
     proj(cwd, cores.pickContextFile((name) => existsSync(proj(cwd, name))));
   const text = (t: string) => ({
