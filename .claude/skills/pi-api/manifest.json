@@ -1,0 +1,21 @@
+{
+  "source_url": "https://pi.dev/docs",
+  "skill_name": "pi-api",
+  "skill_type": "cli",
+  "api_name": "Pi",
+  "description": "Reference for the Pi CLI (terminal coding agent). Use whenever the user wants to run, script, or automate Pi commands - subcommands, flags, output formats, install/auth/config - or asks about a specific command or flag.",
+  "layout": "flat",
+  "page_count": 30,
+  "endpoint_count": 0,
+  "reason": "1 CLI commands across 1 groups (0 meaningful); thresholds 20 commands / 2 groups",
+  "filters": {
+    "exclude_paths": [],
+    "include_paths": []
+  },
+  "workarounds": [
+    "github-mdx-source"
+  ],
+  "first_scraped": "2026-08-21T16:01:09Z",
+  "last_updated": "2026-08-21T16:01:09Z",
+  "command_count": 30
+}

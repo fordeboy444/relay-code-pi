@@ -1,13 +1,4 @@
 node_modules/
-dist/
-*.tsbuildinfo
-.pi/
-.claude/
-__pycache__/
-*.pyc
-# Secret env files — these hold real keys (MODAL_TOKEN_*, TRIGGER_SECRET_KEY,
-# AIRTABLE_TOKEN, etc.) and must never be committed. The package ships only
-# the `.env.template` / `.env.production.template` scaffolds (commit-tracked).
 .env
 .env.production
 .env.local

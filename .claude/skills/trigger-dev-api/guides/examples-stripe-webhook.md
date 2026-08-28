@@ -1,0 +1,144 @@
+# Trigger a task from Stripe webhook events
+
+> Source: https://trigger.dev/docs/guides/examples/stripe-webhook
+
+[​](https://trigger.dev/docs/guides/examples/stripe-webhook#overview)
+
+Overview
+---------------------------------------------------------------------------------
+
+This example shows how to set up a webhook handler in your existing app for incoming Stripe events. The handler triggers a task when a `checkout.session.completed` event is received. This is easily customisable to handle other Stripe events.
+
+[​](https://trigger.dev/docs/guides/examples/stripe-webhook#key-features)
+
+Key features
+-----------------------------------------------------------------------------------------
+
+*   Shows how to create a Stripe webhook handler in your app
+*   Triggers a task from your backend when a `checkout.session.completed` event is received
+
+[​](https://trigger.dev/docs/guides/examples/stripe-webhook#environment-variables)
+
+Environment variables
+-----------------------------------------------------------------------------------------------------------
+
+You’ll need to configure the following environment variables for this example to work:
+
+*   `STRIPE_WEBHOOK_SECRET` The secret key used to verify the Stripe webhook signature.
+*   `TRIGGER_API_URL` Your Trigger.dev API url: `https://api.trigger.dev`
+*   `TRIGGER_SECRET_KEY` Your Trigger.dev secret key
+
+[​](https://trigger.dev/docs/guides/examples/stripe-webhook#setting-up-the-stripe-webhook-handler)
+
+Setting up the Stripe webhook handler
+-------------------------------------------------------------------------------------------------------------------------------------------
+
+First you’ll need to create a [Stripe webhook](https://stripe.com/docs/webhooks)
+ handler route that listens for POST requests and verifies the Stripe signature. Here are examples of how you can set up a handler using different frameworks:
+
+Next.js
+
+Remix
+
+    // app/api/stripe-webhook/route.ts
+    import { NextResponse } from "next/server";
+    import { tasks } from "@trigger.dev/sdk";
+    import Stripe from "stripe";
+    import type { stripeCheckoutCompleted } from "@/trigger/stripe-checkout-completed";
+    //     👆 **type-only** import
+    
+    export async function POST(request: Request) {
+      const signature = request.headers.get("stripe-signature");
+      const payload = await request.text();
+    
+      if (!signature || !payload) {
+        return NextResponse.json(
+          { error: "Invalid Stripe payload/signature" },
+          {
+            status: 400,
+          }
+        );
+      }
+    
+      const event = Stripe.webhooks.constructEvent(
+        payload,
+        signature,
+        process.env.STRIPE_WEBHOOK_SECRET as string
+      );
+    
+      // Perform the check based on the event type
+      switch (event.type) {
+        case "checkout.session.completed": {
+          // Trigger the task only if the event type is "checkout.session.completed"
+          const { id } = await tasks.trigger<typeof stripeCheckoutCompleted>(
+            "stripe-checkout-completed",
+            event.data.object
+          );
+          return NextResponse.json({ runId: id });
+        }
+        default: {
+          // Return a response indicating that the event is not handled
+          return NextResponse.json(
+            { message: "Event not handled" },
+            {
+              status: 200,
+            }
+          );
+        }
+      }
+    }
+    
+
+[​](https://trigger.dev/docs/guides/examples/stripe-webhook#task-code)
+
+Task code
+-----------------------------------------------------------------------------------
+
+This task is triggered when a `checkout.session.completed` event is received from Stripe.
+
+trigger/stripe-checkout-completed.ts
+
+    import { task } from "@trigger.dev/sdk";
+    import type stripe from "stripe";
+    
+    export const stripeCheckoutCompleted = task({
+      id: "stripe-checkout-completed",
+      run: async (payload: stripe.Checkout.Session) => {
+        // Add your custom logic for handling the checkout.session.completed event here
+      },
+    });
+    
+
+[​](https://trigger.dev/docs/guides/examples/stripe-webhook#testing-your-task-locally)
+
+Testing your task locally
+-------------------------------------------------------------------------------------------------------------------
+
+To test everything is working you can use the Stripe CLI to send test events to your endpoint:
+
+1.  Install the [Stripe CLI](https://stripe.com/docs/stripe-cli#install)
+    , and login
+2.  Follow the instructions to [test your handler](https://docs.stripe.com/webhooks#test-webhook)
+    . This will include a temporary `STRIPE_WEBHOOK_SECRET` that you can use for testing.
+3.  When triggering the event, use the `checkout.session.completed` event type. With the Stripe CLI: `stripe trigger checkout.session.completed`
+4.  If your endpoint is set up correctly, you should see the Stripe events logged in your console with a status of `200`.
+5.  Then, check the [Trigger.dev](https://cloud.trigger.dev/)
+     dashboard and you should see the successful run of the `stripe-webhook` task.
+
+For more information on setting up and testing Stripe webhooks, refer to the [Stripe Webhook Documentation](https://stripe.com/docs/webhooks)
+.
+
+Was this page helpful?
+
+YesNo
+
+[Previous](https://trigger.dev/docs/guides/frameworks/remix-webhooks)
+[Hookdeck webhooksThis example demonstrates how to use Hookdeck to receive webhooks and trigger Trigger.dev tasks.\
+\
+Next](https://trigger.dev/docs/guides/examples/hookdeck-webhook)
+
+⌘I
+
+Assistant
+
+Responses are generated using AI and may contain mistakes.

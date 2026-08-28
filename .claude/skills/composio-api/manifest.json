@@ -1,0 +1,23 @@
+{
+  "source_url": "https://docs.composio.dev/docs",
+  "skill_name": "composio-api",
+  "skill_type": "api",
+  "api_name": "Composio",
+  "description": "Reference for the Composio API. Use whenever the user asks about the Composio HTTP API, REST endpoints, webhooks, authentication/API tokens, or needs developer/product documentation for Composio. Cite source URLs when giving API details.",
+  "layout": "layered",
+  "page_count": 119,
+  "endpoint_count": 1,
+  "reason": "119 pages and 1 endpoints; thresholds are 50 pages / 51 endpoints (override: layered)",
+  "filters": {
+    "exclude_paths": [
+      "^https://docs\\.composio\\.dev/docs/changelog(/.*)?$",
+      "^https://docs\\.composio\\.dev/reference/v3(/.*)?$"
+    ],
+    "include_paths": []
+  },
+  "workarounds": [
+    "github-mdx-source"
+  ],
+  "first_scraped": "2026-07-27T09:51:26Z",
+  "last_updated": "2026-07-27T09:51:26Z"
+}

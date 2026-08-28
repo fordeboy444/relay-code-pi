@@ -1,0 +1,322 @@
+# Quickstart
+
+- **URL:** https://docs.composio.dev/quickstart
+- **Summary:** Build an AI agent with access to 1000+ tools
+
+Build your first AI agent with Composio Tools. You'll create a [session](/docs/how-composio-works) for a user, give your agent access to [tools](/docs/how-composio-works), and let it take action across 1000+ apps.
+
+The TypeScript SDK is ESM-only and requires Node.js 22.22.3 or newer. Use `import` syntax rather than CommonJS `require()`.
+
+Install
+
+Configure API Keys
+
+Get your `COMPOSIO_API_KEY` from [Settings](https://dashboard.composio.dev/~/project/settings/api-keys?utm_source=docs&utm_medium=content&utm_campaign=docs-quickstart) and `OPENAI_API_KEY` from [OpenAI](https://platform.openai.com/api-keys).
+
+```bash title=".env"
+COMPOSIO_API_KEY=your_composio_api_key
+OPENAI_API_KEY=your_openai_api_key
+```
+
+Create session and run agent
+
+```python
+from dotenv import load_dotenv
+from composio import Composio
+from agents import Agent, Runner, SQLiteSession
+from composio_openai_agents import OpenAIAgentsProvider
+
+load_dotenv()
+
+# Initialize Composio with OpenAI Agents provider
+composio = Composio(provider=OpenAIAgentsProvider())
+
+# Create a session for your user
+user_id = "user_123"
+session = composio.sessions.create(user_id=user_id)
+tools = session.tools()
+
+# For multi-turn, store the session ID in your db and reuse instead of creating another session:
+# session_id = session.session_id
+# session = composio.use(session_id)
+
+agent = Agent(
+    name="Personal Assistant",
+    instructions="You are a helpful personal assistant. Use Composio tools to take action.",
+    model="gpt-5.2",
+    tools=tools,
+)
+
+# Memory for multi-turn conversation
+memory = SQLiteSession("conversation")
+
+print("""
+What task would you like me to help you with?
+I can use tools like Gmail, GitHub, Linear, Notion, and more.
+(Type 'exit' to exit)
+Example tasks:
+  - 'Summarize my emails from today'
+  - 'List all open issues on the composio github repository'
+""")
+
+while True:
+    user_input = input("You: ").strip()
+    if user_input.lower() == "exit":
+        break
+
+    print("Assistant: ", end="", flush=True)
+    result = Runner.run_sync(starting_agent=agent, input=user_input, session=memory)
+    print(f"{result.final_output}\n")
+```
+
+```typescript
+
+// Initialize Composio with OpenAI Agents provider
+const composio = new Composio({ provider: new OpenAIAgentsProvider() });
+
+// Create a session for your user
+const userId = "user_123";
+const session = await composio.create(userId);
+const tools = await session.tools();
+
+// For multi-turn, store the session ID in your db and reuse instead of calling create() again:
+// const sessionId = session.sessionId;
+// const session = await composio.use(sessionId);
+
+const agent = new Agent({
+  name: "Personal Assistant",
+  instructions: "You are a helpful personal assistant. Use Composio tools to take action.",
+  model: "gpt-5.2",
+  tools,
+});
+
+const memory = new MemorySession();
+const readline = createInterface({ input: process.stdin, output: process.stdout });
+
+console.log(`
+What task would you like me to help you with?
+I can use tools like Gmail, GitHub, Linear, Notion, and more.
+(Type 'exit' to exit)
+Example tasks:
+  - 'Summarize my emails from today'
+  - 'List all open issues on the composio github repository'
+`);
+
+while (true) {
+  const input = (await readline.question("You: ")).trim();
+  if (input.toLowerCase() === "exit") break;
+
+  process.stdout.write("Assistant: ");
+  const result = await run(agent, input, { session: memory });
+  process.stdout.write(`${result.finalOutput}\n`);
+}
+readline.close();
+```
+
+Install
+
+Configure API Keys
+
+Get your `COMPOSIO_API_KEY` from [Settings](https://dashboard.composio.dev/~/project/settings/api-keys?utm_source=docs&utm_medium=content&utm_campaign=docs-quickstart) and `ANTHROPIC_API_KEY` from [Anthropic](https://console.anthropic.com/settings/keys).
+
+```bash title=".env"
+COMPOSIO_API_KEY=your_composio_api_key
+ANTHROPIC_API_KEY=your_anthropic_api_key
+```
+
+Create session and run agent
+
+```python
+from dotenv import load_dotenv
+from composio import Composio
+from composio_claude_agent_sdk import ClaudeAgentSDKProvider
+from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions, create_sdk_mcp_server, AssistantMessage, TextBlock
+
+load_dotenv()
+
+# Initialize Composio with Claude Agent SDK provider
+composio = Composio(provider=ClaudeAgentSDKProvider())
+
+# Create a session for your user
+user_id = "user_123"
+session = composio.sessions.create(user_id=user_id)
+tools = session.tools()
+
+# For multi-turn, store the session ID in your db and reuse instead of creating another session:
+# session_id = session.session_id
+# session = composio.use(session_id)
+
+custom_server = create_sdk_mcp_server(name="composio", version="1.0.0", tools=tools)
+
+async def main():
+    options = ClaudeAgentOptions(
+        system_prompt="You are a helpful assistant. Use tools to complete tasks.",
+        permission_mode="bypassPermissions",
+        mcp_servers={"composio": custom_server},
+    )
+
+    async with ClaudeSDKClient(options=options) as client:
+        print("""
+What task would you like me to help you with?
+I can use tools like Gmail, GitHub, Linear, Notion, and more.
+(Type 'exit' to exit)
+Example tasks:
+  - 'Summarize my emails from today'
+  - 'List all open issues on the composio github repository'
+""")
+
+        while True:
+            user_input = input("You: ").strip()
+            if user_input.lower() == "exit":
+                break
+
+            await client.query(user_input)
+            print("Claude: ", end="", flush=True)
+            async for message in client.receive_response():
+                if isinstance(message, AssistantMessage):
+                    for block in message.content:
+                        if isinstance(block, TextBlock):
+                            print(block.text, end="", flush=True)
+            print()
+
+asyncio.run(main())
+```
+
+```typescript
+
+// Initialize Composio with Claude Agent SDK provider
+const composio = new Composio({ provider: new ClaudeAgentSDKProvider() });
+
+// Create a session for your user
+const userId = "user_123";
+const session = await composio.create(userId);
+const tools = await session.tools();
+
+// For multi-turn, store the session ID in your db and reuse instead of calling create() again:
+// const sessionId = session.sessionId;
+// const session = await composio.use(sessionId);
+
+const customServer = createSdkMcpServer({
+  name: "composio",
+  version: "1.0.0",
+  tools: tools,
+});
+
+const readline = createInterface({ input: process.stdin, output: process.stdout });
+
+console.log(`
+What task would you like me to help you with?
+I can use tools like Gmail, GitHub, Linear, Notion, and more.
+(Type 'exit' to exit)
+Example tasks:
+  - 'Summarize my emails from today'
+  - 'List all open issues on the composio github repository and create a Google Sheet with the issues'
+`);
+
+let isFirstQuery = true;
+const options = {
+  mcpServers: { composio: customServer },
+  permissionMode: "bypassPermissions" as const,
+};
+
+while (true) {
+  const input = (await readline.question("You: ")).trim();
+  if (input.toLowerCase() === "exit") break;
+
+  const queryOptions = isFirstQuery ? options : { ...options, continue: true };
+  isFirstQuery = false;
+
+  process.stdout.write("Claude: ");
+  for await (const stream of query({ prompt: input, options: queryOptions })) {
+    if (stream.type === "assistant") {
+      for (const block of stream.message.content) {
+        if (block.type === "text") {
+          process.stdout.write(block.text);
+        }
+      }
+    }
+  }
+  console.log();
+}
+
+readline.close();
+```
+
+Install
+
+Configure API Keys
+
+Get your `COMPOSIO_API_KEY` from [Settings](https://dashboard.composio.dev/~/project/settings/api-keys?utm_source=docs&utm_medium=content&utm_campaign=docs-quickstart) and `ANTHROPIC_API_KEY` from [Anthropic](https://console.anthropic.com/settings/keys).
+
+```bash title=".env"
+COMPOSIO_API_KEY=your_composio_api_key
+ANTHROPIC_API_KEY=your_anthropic_api_key
+```
+
+Create session and run agent
+
+```typescript
+
+// Initialize Composio with Vercel provider
+const composio = new Composio({ provider: new VercelProvider() });
+
+// Create a session for your user
+const userId = "user_123";
+const session = await composio.create(userId);
+const tools = await session.tools();
+
+// For multi-turn, store the session ID in your db and reuse instead of calling create() again:
+// const sessionId = session.sessionId;
+// const session = await composio.use(sessionId);
+
+const readline = createInterface({ input: process.stdin, output: process.stdout });
+
+console.log(`
+What task would you like me to help you with?
+I can use tools like Gmail, GitHub, Linear, Notion, and more.
+(Type 'exit' to exit)
+Example tasks:
+  - 'Summarize my emails from today'
+  - 'List all open issues on the composio github repository'
+`);
+
+const messages: ModelMessage[] = [];
+
+while (true) {
+  const input = (await readline.question("You: ")).trim();
+  if (input.toLowerCase() === "exit") break;
+
+  messages.push({ role: "user", content: input });
+  process.stdout.write("Assistant: ");
+
+  const result = await streamText({
+    system: "You are a helpful personal assistant. Use Composio tools to take action.",
+    model: anthropic("claude-sonnet-4-6"),
+    messages,
+    stopWhen: stepCountIs(10),
+    onStepFinish: (step) => {
+      for (const toolCall of step.toolCalls) {
+        process.stdout.write(`\n[Using tool: ${toolCall.toolName}]`);
+      }
+    },
+    tools,
+  });
+
+  for await (const textPart of result.textStream) {
+    process.stdout.write(textPart);
+  }
+  console.log();
+
+  messages.push(...(await result.response).messages);
+}
+
+readline.close();
+```
+
+By default, each `composio.sessions.create()` call returns a new session with access to all toolkits. Sessions are highly configurable beyond that: [Reusing a session](/docs/how-composio-works#how-sessions-behave) covers storing a session ID and calling `composio.use()` across multi-turn requests, while [Configuring Sessions](/docs/configuring-sessions) covers restricting toolkits, auth configs, and connected accounts.
+
+Prefer to connect over the Model Context Protocol instead? Every session also exposes an MCP endpoint. See [Using sessions via MCP](/docs/sessions-via-mcp).
+
+## Next
+
+  Restrict toolkits, set custom auth configs, and select connected accounts

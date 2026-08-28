@@ -1,0 +1,52 @@
+# Managed Auth
+
+- **URL:** https://docs.composio.dev/managed-auth
+- **Summary:** Find out which toolkits work with Composio managed authentication and when you need your own credentials
+
+Managed auth means Composio registers and maintains the OAuth app for a toolkit, so your users can connect their accounts with no OAuth credentials for you to set up. Most popular toolkits (GitHub, Gmail, Slack, and many more) ship with managed auth and work the moment you create a session.
+
+When a tool needs an account, the [`COMPOSIO_MANAGE_CONNECTIONS`](/toolkits/meta-tools/manage_connections) meta tool returns a secure [Connect Link](/docs/tools-direct/authenticating-tools#hosted-authentication-connect-link). The user signs in there, and Composio stores and refreshes their tokens. You write no auth code. See [Authentication](/docs/authentication) for the full flow.
+
+## When you don't need to do anything
+
+For any toolkit with managed auth, you don't register an OAuth app, manage credentials, or handle token refresh. Create a session and start calling tools:
+
+```python
+from composio import Composio
+
+composio = Composio()
+session = composio.create(user_id="user_123")
+# Tools that need an account return a Connect Link automatically
+```
+
+```typescript
+
+const composio = new Composio();
+const session = await composio.create("user_123");
+// Tools that need an account return a Connect Link automatically
+```
+
+## When you need your own credentials
+
+You need a custom auth config when you want to:
+
+- **Bring your own OAuth app**, so users see your app name on the consent screen instead of "Composio."
+- **Request specific scopes** beyond Composio's defaults.
+- **Use a toolkit without managed auth**, where you supply an API key, bearer token, or instance details.
+
+See [Managed vs custom auth](/docs/custom-app-vs-managed-app) for the full decision guide and setup steps. You can mix the two: use your own credentials for some toolkits and managed auth for the rest.
+
+## Find a toolkit
+
+Search the list below to check whether a toolkit has managed auth. Toolkits under **Composio Managed App Available** work out of the box. Toolkits under **Requires your own credentials** need a custom auth config.
+
+## Check programmatically
+
+To check a single toolkit from a script, call the toolkit endpoint and read its managed auth schemes:
+
+```bash
+curl 'https://backend.composio.dev/api/v3.1/toolkits/posthog' \
+  -H 'x-api-key: YOUR_API_KEY'
+```
+
+A toolkit that lists managed auth schemes in the response has managed auth. An empty list means you need to supply your own credentials.

@@ -1,0 +1,73 @@
+# AutoGen
+
+- **URL:** https://docs.composio.dev/providers/autogen
+- **Summary:** Build an agent with AutoGen and enable it to use 1000+ tools with Composio.
+
+The AutoGen provider turns Composio tools into AutoGen [`FunctionTool`](https://microsoft.github.io/autogen/) objects and registers them with your agents. You connect an account, fetch the tools, register them with a caller and executor agent, and AutoGen handles the conversation and tool calls.
+
+The provider runs on the [`ag2`](https://github.com/ag2ai/ag2) distribution, the community-maintained continuation of AutoGen 0.2, so it works for AG2 projects out of the box.
+
+**Install**
+
+**Configure API Keys**
+
+Set `COMPOSIO_API_KEY` with your API key from [Settings](https://dashboard.composio.dev/~/project/settings/api-keys?utm_source=docs&utm_medium=content&utm_campaign=docs-providers-autogen) and `OPENAI_API_KEY` with your [OpenAI API key](https://platform.openai.com/api-keys).
+
+```txt title=".env"
+COMPOSIO_API_KEY=xxxxxxxxx
+OPENAI_API_KEY=xxxxxxxxx
+```
+
+**Create session and run**
+
+```python
+
+from autogen import AssistantAgent, LLMConfig, UserProxyAgent
+from composio import Composio
+from composio_autogen import AutogenProvider
+
+composio = Composio(provider=AutogenProvider())
+
+# Create a session for your user
+session = composio.create(user_id="user_123")
+tools = session.tools()
+
+chatbot = AssistantAgent(
+    "chatbot",
+    system_message="Reply TERMINATE when the task is done or when user's content is empty",
+    llm_config=LLMConfig({
+        "api_type": "openai",
+        "model": "gpt-5.2",
+        "api_key": os.environ["OPENAI_API_KEY"],
+    }),
+)
+
+user_proxy = UserProxyAgent(
+    "user_proxy",
+    is_termination_msg=lambda msg: "TERMINATE" in (msg.get("content", "") or ""),
+    human_input_mode="NEVER",
+    code_execution_config={"use_docker": False},
+)
+
+# Register tools with both agents
+composio.provider.register_tools(caller=chatbot, executor=user_proxy, tools=tools)
+
+response = user_proxy.initiate_chat(
+    chatbot,
+    message="Send an email to john@example.com with the subject 'Hello' and body 'Hello from Composio!'",
+)
+
+print(response.chat_history)
+```
+
+## Provider specifics
+
+AutoGen needs tools registered with two agents, not passed once. Call `composio.provider.register_tools(caller=..., executor=..., tools=tools)`: the `caller` decides which tool to invoke, and the `executor` runs it.
+
+Each tool comes back as an AutoGen `FunctionTool` with a generated `name`. AutoGen caps function names at 64 characters, so the provider hashes and truncates long tool slugs to stay under the limit. The registered name will not always match the original Composio slug.
+
+`register_tools` is unique to the AutoGen provider. Other providers pass tools straight into the agent constructor, so don't expect this method elsewhere.
+
+## Next
+
+<Card icon={} title="What is a session?" href="/docs/how-composio-works" description="How sessions scope users, tools, and auth, and how to reuse them across requests." />
