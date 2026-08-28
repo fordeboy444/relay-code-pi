@@ -83,6 +83,50 @@ export default function (pi: ExtensionAPI) {
     });
 
   // -------------------------------------------------------------------------
+  // Automation-identity helpers (relay_automation_info + the deploy echo)
+  // -------------------------------------------------------------------------
+  // Output-only path normalization: reports and echoes print forward slashes
+  // regardless of host (Windows included), matching relay_lint's path printing.
+  const toFwd = (p: string): string => p.replace(/\\/g, "/");
+
+  /** Read an automation directory's identity files (null for anything missing)
+   * and hand the CONTENTS to the pure core — no parsing here. `overrides`
+   * replaces a read (relay_smoke_test already holds .env.production's text). */
+  const readIdentity = async (
+    dir: string,
+    overrides: Partial<cores.ProjectIdentityInput> = {},
+  ): Promise<cores.ProjectIdentity> => {
+    const read = async (rel: string): Promise<string | null> => {
+      try {
+        return await readFile(join(dir, rel), "utf8");
+      } catch {
+        return null;
+      }
+    };
+    const modalBridge = await read("modal_bridge.py");
+    let triggerTaskIds: string[] | undefined;
+    if (modalBridge !== null) {
+      try {
+        triggerTaskIds = (await readdir(join(dir, "src", "trigger")))
+          .filter((f) => f.endsWith(".ts"))
+          .map((f) => f.replace(/\.ts$/, ""));
+      } catch {
+        // no src/trigger yet — leave undefined
+      }
+    }
+    return cores.parseProjectIdentity({
+      dirName: basename(dir),
+      triggerConfig: await read("trigger.config.ts"),
+      packageJson: await read("package.json"),
+      modalBridge,
+      schemaTs: await read("src/schema.ts"),
+      envProduction: await read(".env.production"),
+      triggerTaskIds,
+      ...overrides,
+    });
+  };
+
+  // -------------------------------------------------------------------------
   // Constitution delivery — main agent only
   // -------------------------------------------------------------------------
   // before_agent_start fires on every prompt submission; returning
@@ -302,6 +346,82 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerTool({
+    name: "relay_automation_info",
+    label: "Automation identity",
+    description:
+      "Report the current automation's identity: Trigger.dev project ID (trigger.config.ts `project:` " +
+      "field — what the CLI uses as TRIGGER_PROJECT_ID), automation name (package.json), Modal app " +
+      '(name from modal_bridge.py App("…")), Airtable BASE_ID, ALLOWED_TASKS vs scaffolded tasks, and ' +
+      ".env.production flags (prefixes only — never secret values). With scope 'fleet', list every " +
+      "automation directory beside this one (one level deep; a directory qualifies when it contains " +
+      "trigger.config.ts). Project IDs and app names are not secrets — echoing them is required.",
+    promptSnippet:
+      "Report this automation's Trigger.dev project ID / Modal app / tasks, or list the fleet",
+    promptGuidelines: [
+      "Use relay_automation_info (no args) at session start or after /clear, and state the Trigger.dev project ID it reports before doing any work in an automation directory.",
+      "Use relay_automation_info with scope 'fleet' when asked what automations exist, or before deploying, to confirm the target.",
+      "Never hand-edit trigger.config.ts to change the project id — it is written once by /skill:relay-system-setup Part A Phase 2.",
+    ],
+    parameters: Type.Object({
+      scope: Type.Optional(
+        StringEnum(["current", "fleet"] as const, {
+          description:
+            "current (default) = this directory's identity; fleet = scan for automation directories",
+        }),
+      ),
+      root: Type.Optional(
+        Type.String({
+          description:
+            "Fleet-scan root (absolute or relative to cwd). Default: the parent of this directory when this directory is itself an automation, otherwise the cwd.",
+        }),
+      ),
+    }),
+    async execute(_id, params, signal, _onUpdate, ctx) {
+      if (signal?.aborted) return text("Cancelled");
+      if (params.scope === "fleet") {
+        const scanRoot = params.root
+          ? proj(ctx.cwd, params.root)
+          : existsSync(proj(ctx.cwd, "trigger.config.ts"))
+            ? dirname(ctx.cwd)
+            : ctx.cwd;
+        let entries: import("node:fs").Dirent[] = [];
+        try {
+          entries = await readdir(scanRoot, { withFileTypes: true });
+        } catch (e) {
+          throw new Error(
+            `relay_automation_info: cannot read fleet-scan root ${toFwd(scanRoot)}: ` +
+              `${e instanceof Error ? e.message : String(e)}`,
+          );
+        }
+        const names = entries
+          .filter(
+            (e) => e.isDirectory() && !e.name.startsWith(".") && e.name !== "node_modules",
+          )
+          .map((e) => e.name)
+          .sort((a, b) => a.localeCompare(b))
+          .filter((name) => existsSync(join(scanRoot, name, "trigger.config.ts")));
+        if (names.length === 0) {
+          return text(
+            `Fleet scan — no automation directories under ${toFwd(scanRoot)} ` +
+              "(a directory qualifies when it contains trigger.config.ts).",
+          );
+        }
+        const rows: cores.FleetRow[] = [];
+        for (const name of names) {
+          const dir = join(scanRoot, name);
+          rows.push({
+            dir: name,
+            isCurrent: resolve(dir) === resolve(ctx.cwd),
+            identity: await readIdentity(dir),
+          });
+        }
+        return text(cores.formatFleetTable({ scanRoot: toFwd(scanRoot), rows }));
+      }
+      return text(cores.formatIdentityReport(await readIdentity(ctx.cwd), { dir: toFwd(ctx.cwd) }));
+    },
+  });
+
+  pi.registerTool({
     name: "relay_test",
     label: "Run tests",
     description: "Run npm test (vitest) — the primary quality gate; TS type errors surface here.",
@@ -439,6 +559,7 @@ export default function (pi: ExtensionAPI) {
     parameters: Type.Object({}),
     async execute(_id, _params, signal, _onUpdate, ctx) {
       if (signal?.aborted) return text("Cancelled");
+      const identity = await readIdentity(ctx.cwd);
       const res = await pi.exec(NPM, ["run", "trigger:deploy"], {
         signal,
         cwd: ctx.cwd,
@@ -446,10 +567,15 @@ export default function (pi: ExtensionAPI) {
       });
       if (res.code !== 0) {
         throw new Error(
-          `trigger deploy failed (exit ${res.code}):\n${tail(res.stderr)}\n${tail(res.stdout)}`,
+          `trigger deploy failed (exit ${res.code}):\n${tail(res.stderr)}\n${tail(res.stdout)}` +
+            (identity.projectRef === null
+              ? '\n[identity] trigger.config.ts has an empty/sentinel `project:` field — TRIGGER_PROJECT_ID is not set. Run /skill:relay-system-setup Part A Phase 2, then re-deploy.'
+              : ""),
         );
       }
-      return text(`Trigger.dev deploy succeeded.\n${tail(res.stdout, 2000)}`);
+      return text(
+        `${cores.formatIdentityEcho(identity)}\nTrigger.dev deploy succeeded.\n${tail(res.stdout, 2000)}`,
+      );
     },
   });
 
@@ -477,14 +603,18 @@ export default function (pi: ExtensionAPI) {
         throw new Error("relay_smoke_test: recordId must start with 'rec'.");
       }
       const envProdPath = proj(ctx.cwd, ".env.production");
+      let envProdText: string;
       let envProd: Record<string, string> = {};
       try {
-        envProd = cores.parseDotenv(await readFile(envProdPath, "utf8"));
+        envProdText = await readFile(envProdPath, "utf8");
+        envProd = cores.parseDotenv(envProdText);
       } catch {
         throw new Error(
           "relay_smoke_test: .env.production not found or unreadable. Create it with TRIGGER_SECRET_KEY (prod) first.",
         );
       }
+      // Reuse the already-read .env.production text — no second disk read.
+      const identity = await readIdentity(ctx.cwd, { envProduction: envProdText });
       const secret = envProd.TRIGGER_SECRET_KEY;
       const base = envProd.TRIGGER_BASE_URL || "https://api.trigger.dev";
       if (!secret) {
@@ -539,11 +669,11 @@ export default function (pi: ExtensionAPI) {
           "utf8",
         );
         return text(
-          `Smoke test PASSED. run ${runId} status COMPLETED. Deploy-gate marker written — you may now relay_deploy_modal.`,
+          `${cores.formatIdentityEcho(identity)}\nSmoke test PASSED. run ${runId} status COMPLETED. Deploy-gate marker written — you may now relay_deploy_modal.`,
         );
       }
       return text(
-        `Smoke test did NOT pass. run ${runId} status ${status}. Deploy-gate marker NOT written. Fix the task and re-run.`,
+        `${cores.formatIdentityEcho(identity)}\nSmoke test did NOT pass. run ${runId} status ${status}. Deploy-gate marker NOT written. Fix the task and re-run.`,
       );
     },
   });
@@ -560,6 +690,7 @@ export default function (pi: ExtensionAPI) {
     parameters: Type.Object({}),
     async execute(_id, _params, signal, _onUpdate, ctx) {
       if (signal?.aborted) return text("Cancelled");
+      const identity = await readIdentity(ctx.cwd);
       const gatePath = proj(ctx.cwd, cores.DEPLOY_GATE_RELATIVE_PATH);
       let gateText: string;
       try {
@@ -593,7 +724,11 @@ export default function (pi: ExtensionAPI) {
         );
       }
       return text(
-        `Modal bridge deployed. Smoke-gate was satisfied by task ${gate.task} (run ${gate.runId}).\n${tail(res.stdout, 2000)}`,
+        cores.formatIdentityEcho(identity) +
+          (identity.modalAppNameIsSentinel
+            ? " ⚠ modal app name is still the sentinel REPLACE-ME-bridge — run /skill:relay-system-setup Part B"
+            : "") +
+          `\nModal bridge deployed. Smoke-gate was satisfied by task ${gate.task} (run ${gate.runId}).\n${tail(res.stdout, 2000)}`,
       );
     },
   });
@@ -601,7 +736,7 @@ export default function (pi: ExtensionAPI) {
   // -------------------------------------------------------------------------
   // relay_lint — deterministic conformance checker for skill-produced specs/plans
   //
-  // An LLM-callable tool (the 10th) so the agent can self-check its own
+  // An LLM-callable tool (the 11th) so the agent can self-check its own
   // artifacts before handoff. Scans docs/specs/*.md and docs/plans/*.md under
   // the project cwd and runs the pure cores (cores.lintSpec / cores.lintPlan)
   // that mirror the rules in the project AGENTS.md (the constitution

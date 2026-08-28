@@ -16,6 +16,12 @@ the per-plan progress ledger (see Standing rules).
   Do not re-dispatch tasks already marked complete. Update the progress ledger whenever
   you make meaningful progress. The constitution itself is stable across projects;
   progress is not.
+- **One automation per directory — identity = the directory.** Each Trigger.dev project
+  lives in its own folder (own `trigger.config.ts`, `modal_bridge.py`, `.env.production`);
+  two automations never share one. Before working in an automation directory, call
+  `relay_automation_info` (no args) and **state the Trigger.dev project ID it reports**
+  in your first reply; use `scope: "fleet"` when asked what automations exist or before
+  deploying. `proj_…` IDs and app names are not secrets — echoing them is required.
 
 ## Use the tools — do not hand-edit these files
 
@@ -45,6 +51,10 @@ user rather than patching it by hand.
 - `relay_locate_automation` — resolve an automation's spec/plan/ledger/progress
   (or list all). Call this first when resuming work after `/clear`. Its first line
   of output is the canonical progress signal.
+- `relay_automation_info` — report this directory's automation identity (Trigger.dev
+  project ID, automation name, Modal app, BASE_ID, ALLOWED_TASKS) or, with
+  `scope: "fleet"`, list every automation directory beside this one. Call it at session
+  start and state the project ID it reports before doing any work.
 - `relay_test` — run `npm test` (the primary quality gate; TS type errors surface here).
 - `relay_dev_worker` — bring the local Trigger.dev dev worker `up` / check `status` /
   take it `down`. Bring it up before exercising a task locally.
@@ -67,6 +77,11 @@ user rather than patching it by hand.
 
 Never reverse this order. The Modal bridge must read `.env.production` (prod), never
 `.env` (dev) — otherwise dispatches hit the empty dev env and every run crashes.
+
+Each deploy tool echoes the automation identity it is acting on — an
+`[identity] project …` line naming the Trigger.dev project ID (and the Modal app on
+`relay_deploy_modal`). Read that line first and stop if it is not the automation you
+meant.
 
 ## Security invariants
 

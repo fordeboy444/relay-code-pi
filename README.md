@@ -28,10 +28,10 @@ Requires [Pi](https://pi.dev) ≥ 0.80.6 (for `@narumitw/pi-goal` `agent_settled
 
 ## What it ships
 
-- **10 deterministic tools** (`extensions/relay-tools.ts`) — action tools that
+- **11 deterministic tools** (`extensions/relay-tools.ts`) — action tools that
   wrap the framework's CLIs (`relay_test`, `relay_deploy_trigger`,
   `relay_deploy_modal`, `relay_smoke_test`, `relay_dev_worker`,
-  `relay_locate_automation`) + convention-enforcing tools
+  `relay_locate_automation`, `relay_automation_info`) + convention-enforcing tools
   (`relay_add_task`, `relay_add_env_var`, `relay_add_schema_field`) +
   a conformance `relay_lint`. A `/plan` command toggles Plannotator plan mode.
 - **Skills** (`skills/`) — setup + lifecycle orchestration

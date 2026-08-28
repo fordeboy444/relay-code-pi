@@ -31,7 +31,7 @@ npm install            # resolve the Pi extension peer/deps under node_modules/
 npm test               # vitest run — pure-core unit tests (the primary gate; TS pipeline exercised here)
 npm run test:watch     # vitest watch
 pi install . -l        # set up this repo as a project-local Pi package (writes .pi/settings.json)
-pi -e .               # package-load smoke gate — expect SMOKE_OK (loads 10 relay tools + 8 extensions)
+pi -e .               # package-load smoke gate — expect SMOKE_OK (loads 11 relay tools + 8 extensions)
 pi -p "Reply with exactly SMOKE_OK and nothing else."   # full-stack host load check
 ```
 
@@ -81,13 +81,14 @@ When you add or change a tool's behavior, **add the logic to `src/cores.ts` and 
 fixture**, then wire it in `extensions/relay-tools.ts`. The reverse (logic in the extension)
 breaks testability — the extension can't be unit-tested without a running Pi host.
 
-Fixtures in `tests/fixtures/` (`config.ts`, `schema.ts`, `modal_bridge.py`, `AGENTS.md`) mirror
+Fixtures in `tests/fixtures/` (`config.ts`, `schema.ts`, `modal_bridge.py`, `AGENTS.md`,
+`trigger.config.ts`, `automation-package.json`) mirror
 the real framework template files; tests load them and assert the transformed output.
 
 ### What the package ships
 
 The `package.json` `"pi"` block is the manifest Pi reads — `extensions`, `skills`, `prompts`,
-`subagents` arrays. Adding a new tool/skill/agent means adding its path there. The 10 tools
+`subagents` arrays. Adding a new tool/skill/agent means adding its path there. The 11 tools
 are registered in `extensions/relay-tools.ts`; their authoritative list and categories live
 there, not here.
 

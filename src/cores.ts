@@ -517,6 +517,365 @@ export function parseDotenv(text: string): Record<string, string> {
 }
 
 // ---------------------------------------------------------------------------
+// relay_automation_info (+ the deploy-tool identity echo) — automation identity
+//
+// Identity = the directory: one Trigger.dev project (`trigger.config.ts`
+// `project:` field) + one Modal app (`modal_bridge.py` `App("…")`) + the
+// automation name (`package.json` "name"). All inputs are file CONTENT
+// (strings), never paths — the extension glue reads the files and passes null
+// for anything missing. The prod secret is reduced to presence + prefix flags;
+// the value never enters a ProjectIdentity.
+// Known limits (documented, not fixed): a non-literal `project:` value
+// (`project: process.env.X`) or an `App(` inside a Python comment parses as
+// "field not found" — the report says so rather than guessing.
+// ---------------------------------------------------------------------------
+
+/** A Trigger.dev project ref, e.g. proj_abc123 — the same shape the
+ * relay-system-setup skill validates against (^proj_[a-z0-9]+$). */
+export const PROJECT_REF_RE = /^proj_[a-z0-9]+$/;
+
+/** Sentinels shipped by the relay-system-setup templates. A sentinel means
+ * "not configured yet", never "configured to this value". */
+export const SENTINEL_AUTOMATION_NAME = "REPLACE-ME-via-system-setup";
+export const SENTINEL_MODAL_APP = "REPLACE-ME-bridge";
+export const SENTINEL_BASE_ID = "REPLACE-ME";
+
+/** Extract the string literals from a Python `varName: set[str] = {…}` (or
+ * `set()`). Returns null when the declaration is absent. */
+export function parsePyStringSet(source: string, varName: string): string[] | null {
+  const m = source.match(
+    new RegExp(`${escapeRegex(varName)}\\s*:\\s*set\\[str\\]\\s*=\\s*(set\\(\\)|\\{[^}]*\\})`),
+  );
+  if (!m) return null;
+  return m[1] === "set()" ? [] : [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]);
+}
+
+/** Everything optional — null/undefined means "file missing or unreadable";
+ * the glue decides which files to read. */
+export interface ProjectIdentityInput {
+  dirName?: string;
+  triggerConfig?: string | null;
+  packageJson?: string | null;
+  modalBridge?: string | null;
+  schemaTs?: string | null;
+  envProduction?: string | null;
+  triggerTaskIds?: string[];
+}
+
+export interface ProjectIdentity {
+  dirName: string;
+  triggerConfigPresent: boolean;
+  packageJsonPresent: boolean;
+  modalBridgePresent: boolean;
+  /** proj_… ref, or null when the field is absent/empty/invalid. */
+  projectRef: string | null;
+  /** Raw `project:` literal — the "" sentinel, an invalid value, or null. */
+  projectRefRaw: string | null;
+  projectRefFieldPresent: boolean;
+  automationName: string | null;
+  automationNameIsSentinel: boolean;
+  modalAppName: string | null;
+  modalAppNameIsSentinel: boolean;
+  baseId: string | null;
+  baseIdIsSentinel: boolean;
+  /** modal_bridge.py ALLOWED_TASKS (empty when the bridge is missing). */
+  tasks: string[];
+  /** modal_bridge.py TASK_REQUIRES_RECORD_ID. */
+  rowScopedTasks: string[];
+  /** Task ids scaffolded under src/trigger/ (glue-provided). */
+  triggerTaskIds: string[];
+  /** Scaffolded under src/trigger/ but missing from ALLOWED_TASKS. */
+  tasksMissingFromBridge: string[];
+  envProdPresent: boolean;
+  envProdHasTriggerSecret: boolean;
+  /** Prefix only — "tr_prod_" | "tr_dev_" | "other"; never the value. */
+  envProdTriggerSecretPrefix: "tr_prod_" | "tr_dev_" | "other" | null;
+  /** project ref + automation name + Modal app all set, no sentinels. */
+  identityComplete: boolean;
+}
+
+/** Parse an automation directory's identity from file contents. Missing or
+ * malformed input degrades to null fields — never throws. */
+export function parseProjectIdentity(input: ProjectIdentityInput): ProjectIdentity {
+  const triggerConfig = input.triggerConfig ?? null;
+  const projectField = triggerConfig
+    ? triggerConfig.match(/^\s*project:\s*(["'])([^"']*)\1/m)
+    : null;
+  const projectRefRaw = projectField ? projectField[2] : null;
+  const projectRef =
+    projectRefRaw && PROJECT_REF_RE.test(projectRefRaw) ? projectRefRaw : null;
+
+  let automationName: string | null = null;
+  if (input.packageJson != null) {
+    try {
+      const name = (JSON.parse(input.packageJson) as { name?: unknown }).name;
+      automationName = typeof name === "string" && name ? name : null;
+    } catch {
+      automationName = input.packageJson.match(/"name"\s*:\s*"([^"]*)"/)?.[1] ?? null;
+    }
+  }
+
+  const modalBridge = input.modalBridge ?? null;
+  const modalAppName = modalBridge?.match(/\bApp\(\s*(["'])([^"']+)\1/)?.[2] ?? null;
+  const tasks = modalBridge
+    ? (parsePyStringSet(modalBridge, "ALLOWED_TASKS") ?? [])
+    : [];
+  const rowScopedTasks = modalBridge
+    ? (parsePyStringSet(modalBridge, "TASK_REQUIRES_RECORD_ID") ?? [])
+    : [];
+
+  const baseId = input.schemaTs?.match(/^export const BASE_ID\s*=\s*["']([^"']*)["']/m)?.[1] ?? null;
+
+  const envProd = input.envProduction != null ? parseDotenv(input.envProduction) : null;
+  const secret = envProd?.TRIGGER_SECRET_KEY;
+  const envProdTriggerSecretPrefix = secret
+    ? secret.startsWith("tr_prod_")
+      ? "tr_prod_"
+      : secret.startsWith("tr_dev_")
+        ? "tr_dev_"
+        : "other"
+    : null;
+
+  const triggerTaskIds = input.triggerTaskIds ?? [];
+
+  return {
+    dirName: input.dirName ?? "",
+    triggerConfigPresent: triggerConfig !== null,
+    packageJsonPresent: input.packageJson != null,
+    modalBridgePresent: modalBridge !== null,
+    projectRef,
+    projectRefRaw,
+    projectRefFieldPresent: projectField !== null,
+    automationName,
+    automationNameIsSentinel: automationName === SENTINEL_AUTOMATION_NAME,
+    modalAppName,
+    modalAppNameIsSentinel: modalAppName === SENTINEL_MODAL_APP,
+    baseId,
+    baseIdIsSentinel: baseId === SENTINEL_BASE_ID,
+    tasks,
+    rowScopedTasks,
+    triggerTaskIds,
+    tasksMissingFromBridge: triggerTaskIds.filter((id) => !tasks.includes(id)),
+    envProdPresent: envProd !== null,
+    envProdHasTriggerSecret: Boolean(secret),
+    envProdTriggerSecretPrefix,
+    identityComplete:
+      projectRef !== null &&
+      automationName !== null &&
+      automationName !== SENTINEL_AUTOMATION_NAME &&
+      modalAppName !== null &&
+      modalAppName !== SENTINEL_MODAL_APP,
+  };
+}
+
+/** One human string per identity blocker; each names the step that fixes it. */
+export function identityBlockers(identity: ProjectIdentity): string[] {
+  const blockers: string[] = [];
+  if (identity.projectRef === null) {
+    blockers.push(
+      identity.projectRefFieldPresent
+        ? `Trigger.dev project id is not a proj_… ref (trigger.config.ts \`project: "${identity.projectRefRaw ?? ""}"\`) → /skill:relay-system-setup Part A Phase 2`
+        : "Trigger.dev project id not found (no literal `project: \"…\"` in trigger.config.ts) → /skill:relay-system-setup Part A Phase 2",
+    );
+  }
+  if (identity.automationName === null || identity.automationNameIsSentinel) {
+    blockers.push(
+      'automation name not set (package.json "name" missing or the sentinel) → /skill:relay-system-setup Part B',
+    );
+  }
+  if (identity.modalAppName === null || identity.modalAppNameIsSentinel) {
+    blockers.push(
+      'Modal app name not set (modal_bridge.py App("…") missing or the sentinel) → /skill:relay-system-setup Part B',
+    );
+  }
+  return blockers;
+}
+
+/** Full identity report, content-in → text-out. */
+export function formatIdentityReport(identity: ProjectIdentity, opts?: { dir?: string }): string {
+  if (
+    !identity.triggerConfigPresent &&
+    !identity.packageJsonPresent &&
+    !identity.modalBridgePresent
+  ) {
+    return opts?.dir
+      ? `No relay-code automation found in ${opts.dir} — trigger.config.ts, package.json, and modal_bridge.py are all missing.`
+      : "No relay-code automation found in this directory — trigger.config.ts, package.json, and modal_bridge.py are all missing.";
+  }
+
+  const lines: string[] = [];
+  lines.push(`Automation identity — ${identity.dirName}`);
+  if (opts?.dir) lines.push(`directory: ${opts.dir}`);
+
+  lines.push(
+    identity.projectRef !== null
+      ? `Trigger.dev project: ${identity.projectRef}`
+      : identity.projectRefFieldPresent && (identity.projectRefRaw ?? "") === ""
+        ? 'Trigger.dev project: (not set — trigger.config.ts `project: ""`)'
+        : identity.projectRefFieldPresent
+          ? `Trigger.dev project: (invalid: "${identity.projectRefRaw}")`
+          : 'Trigger.dev project: (not found — no literal `project: "…"`)',
+  );
+  lines.push(
+    identity.automationName === null
+      ? "automation name: (not found in package.json)"
+      : identity.automationNameIsSentinel
+        ? `automation name: (sentinel — ${identity.automationName})`
+        : `automation name: ${identity.automationName}`,
+  );
+  lines.push(
+    !identity.modalBridgePresent
+      ? "Modal app: (no modal_bridge.py)"
+      : identity.modalAppName === null
+        ? 'Modal app: (not found — no App("…") literal)'
+        : identity.modalAppNameIsSentinel
+          ? `Modal app: (sentinel — ${identity.modalAppName})`
+          : `Modal app: ${identity.modalAppName}`,
+  );
+  lines.push(
+    identity.baseId === null
+      ? "Airtable BASE_ID: (not found in src/schema.ts)"
+      : identity.baseIdIsSentinel
+        ? `Airtable BASE_ID: (sentinel — ${identity.baseId})`
+        : `Airtable BASE_ID: ${identity.baseId}`,
+  );
+
+  const bridgeMissing = !identity.modalBridgePresent;
+  const idsText = identity.triggerTaskIds.length ? identity.triggerTaskIds.join(", ") : "(none scaffolded)";
+  lines.push(
+    `ALLOWED_TASKS: ${bridgeMissing ? "(no modal_bridge.py)" : identity.tasks.length ? identity.tasks.join(", ") : "(none)"}`,
+  );
+  lines.push(
+    `row-scoped tasks: ${bridgeMissing ? "(no modal_bridge.py)" : identity.rowScopedTasks.length ? identity.rowScopedTasks.join(", ") : "(none)"}`,
+  );
+  if (bridgeMissing) {
+    lines.push(`src/trigger tasks: ${idsText}`);
+  } else if (identity.tasksMissingFromBridge.length > 0) {
+    lines.push(
+      `src/trigger tasks: ${idsText} — NOT in ALLOWED_TASKS: ${identity.tasksMissingFromBridge.join(", ")}`,
+    );
+  } else if (identity.triggerTaskIds.length === 0) {
+    lines.push("src/trigger tasks: (none scaffolded)");
+  } else {
+    lines.push(`src/trigger tasks: ${identity.triggerTaskIds.join(", ")} — all registered`);
+  }
+
+  lines.push(
+    !identity.envProdPresent
+      ? ".env.production: not found"
+      : !identity.envProdHasTriggerSecret
+        ? ".env.production: TRIGGER_SECRET_KEY not set"
+        : `.env.production: TRIGGER_SECRET_KEY present (${identity.envProdTriggerSecretPrefix}…)`,
+  );
+
+  const blockers = identityBlockers(identity);
+  if (blockers.length === 0) {
+    lines.push("ready: yes — identity complete");
+  } else {
+    lines.push(`ready: no — ${blockers.length} blocker(s):`);
+    for (const b of blockers) lines.push(`  - ${b}`);
+    if (!identity.envProdHasTriggerSecret) {
+      lines.push("  - (info) .env.production has no TRIGGER_SECRET_KEY → /skill:env-storage (Load)");
+    }
+  }
+  return lines.join("\n");
+}
+
+/** Single-line identity echo for the deploy tools' output. */
+export function formatIdentityEcho(identity: ProjectIdentity): string {
+  const parts: string[] = [];
+  if (identity.projectRef !== null) {
+    parts.push(`project ${identity.projectRef}`);
+  } else if (identity.projectRefFieldPresent && (identity.projectRefRaw ?? "") === "") {
+    parts.push('⚠ Trigger.dev project id NOT SET (trigger.config.ts `project: ""`)');
+  } else if (identity.projectRefFieldPresent) {
+    parts.push(`⚠ Trigger.dev project id invalid (trigger.config.ts \`project: "${identity.projectRefRaw}"\`)`);
+  } else {
+    parts.push('⚠ Trigger.dev project id not found (no literal `project: "…"` in trigger.config.ts)');
+  }
+  parts.push(
+    identity.automationName === null
+      ? "name (not found)"
+      : identity.automationNameIsSentinel
+        ? "name (sentinel)"
+        : identity.automationName,
+  );
+  parts.push(
+    !identity.modalBridgePresent
+      ? "modal app (no modal_bridge.py)"
+      : identity.modalAppName === null
+        ? "modal app (not found)"
+        : identity.modalAppNameIsSentinel
+          ? "modal app (sentinel)"
+          : `modal app ${identity.modalAppName}`,
+  );
+  return `[identity] ${parts.join(" · ")}`;
+}
+
+// ---------------------------------------------------------------------------
+// relay_automation_info fleet scan — one row per automation directory
+// ---------------------------------------------------------------------------
+
+/** A directory qualifying as an automation, with its parsed identity. */
+export interface FleetRow {
+  dir: string;
+  isCurrent: boolean;
+  identity: ProjectIdentity;
+}
+
+const FLEET_CELL_CAP = 28;
+const FLEET_TASKS_CAP = 60;
+
+function fleetCell(value: string, cap = FLEET_CELL_CAP): string {
+  return value.length > cap ? `${value.slice(0, cap - 1)}…` : value;
+}
+
+/** Aligned one-level fleet table. Rows are sorted by directory name; the scan
+ * root is echoed on the first line. Paths should arrive forward-slashed. */
+export function formatFleetTable(opts: { scanRoot: string; rows: FleetRow[] }): string {
+  const header = `Fleet scan — ${opts.rows.length} automation(s) under ${opts.scanRoot}`;
+  const sorted = [...opts.rows].sort((a, b) => a.dir.localeCompare(b.dir));
+  const cells = sorted.map((r) => {
+    const id = r.identity;
+    const appCell = !id.modalBridgePresent
+      ? "(no modal_bridge.py)"
+      : id.modalAppName === null
+        ? "(not found)"
+        : id.modalAppNameIsSentinel
+          ? "(sentinel)"
+          : id.modalAppName;
+    const nameCell =
+      id.automationName === null
+        ? "(not found)"
+        : id.automationNameIsSentinel
+          ? "(sentinel)"
+          : id.automationName;
+    const tasksCell = !id.modalBridgePresent
+      ? "(no modal_bridge.py)"
+      : id.tasks.length
+        ? id.tasks.join(", ")
+        : "(none)";
+    return [
+      fleetCell(r.isCurrent ? `${r.dir} (current)` : r.dir),
+      fleetCell(id.projectRef ?? "(not set)"),
+      fleetCell(appCell),
+      fleetCell(nameCell),
+      fleetCell(tasksCell, FLEET_TASKS_CAP),
+    ];
+  });
+  const headerRow = ["directory", "project ref", "modal app", "name", "tasks"];
+  const widths = [0, 1, 2, 3].map((i) =>
+    Math.min(
+      FLEET_CELL_CAP,
+      Math.max(...[headerRow, ...cells].map((row) => Math.min(row[i].length, FLEET_CELL_CAP))),
+    ),
+  );
+  const render = (row: string[]) =>
+    row.map((c, i) => (i < row.length - 1 ? c.padEnd(widths[i]) : c)).join("  ");
+  return [header, render(headerRow), ...cells.map(render)].join("\n");
+}
+
+// ---------------------------------------------------------------------------
 // relay_lint — conformance checks for skill-produced specs/plans
 //
 // The relay_lint tool (in extensions/relay-tools.ts) reads docs/specs and

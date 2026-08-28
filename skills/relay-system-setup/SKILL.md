@@ -110,7 +110,7 @@ Print, in this order:
 
 1. **Scaffold** — whether Part 0 ran and which template files it wrote, or "Repo already scaffolded — skipped Part 0."
 2. **CLI versions + auth status** — `trigger --version`, `modal --version`, `ctx7 --version`.
-3. **Project identity** — Trigger.dev project ref (from `trigger.config.ts`), Modal app name, Modal username.
+3. **Project identity** — call **`relay_automation_info`** and report what it prints: Trigger.dev project ref, automation name, Modal app name, BASE_ID, and whether any sentinel is still unfilled.
 4. **Env vars validated** — names only, never a value or prefix. (See Secrets.)
 5. **What Part B wrote** — every sentinel replacement that actually happened, or `No changes — project already configured.`
 6. **Next steps:**

@@ -38,6 +38,16 @@ import {
   devWorkerPollVerdict,
   isSubagentChildEnv,
   appendConstitution,
+  PROJECT_REF_RE,
+  SENTINEL_AUTOMATION_NAME,
+  SENTINEL_MODAL_APP,
+  SENTINEL_BASE_ID,
+  parsePyStringSet,
+  parseProjectIdentity,
+  identityBlockers,
+  formatIdentityReport,
+  formatIdentityEcho,
+  formatFleetTable,
 } from "../src/cores";
 
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
@@ -740,5 +750,294 @@ describe("appendConstitution", () => {
   });
   it("returns the prompt unchanged for an empty constitution", () => {
     expect(appendConstitution("base", "")).toBe("base");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// relay_automation_info — automation identity (trigger.config.ts / package.json /
+// modal_bridge.py), identity reports, and the fleet table
+// ---------------------------------------------------------------------------
+
+const triggerConfigBase = load("trigger.config.ts");
+const pkgBase = load("automation-package.json");
+const bridgeBase = load("modal_bridge.py");
+const schemaBase = load("schema.ts");
+
+const configuredIdentity = () =>
+  parseProjectIdentity({
+    dirName: "my-automation",
+    triggerConfig: triggerConfigBase.replace('project: ""', 'project: "proj_abc123def456"'),
+    packageJson: pkgBase.replace("REPLACE-ME-via-system-setup", "my-automation"),
+    modalBridge: bridgeBase
+      .replace('App("REPLACE-ME-bridge"', 'App("my-automation-bridge"')
+      .replace(
+        "ALLOWED_TASKS: set[str] = set()",
+        'ALLOWED_TASKS: set[str] = {"health-check", "send-welcome-email"}',
+      )
+      .replace(
+        "TASK_REQUIRES_RECORD_ID: set[str] = set()",
+        'TASK_REQUIRES_RECORD_ID: set[str] = {"send-welcome-email"}',
+      ),
+    schemaTs: schemaBase.replace('BASE_ID = "REPLACE-ME"', 'BASE_ID = "appXXXXXXX"'),
+    envProduction:
+      "TRIGGER_SECRET_KEY=tr_prod_supersecretvalue123\nTRIGGER_BASE_URL=https://api.trigger.dev\n",
+    triggerTaskIds: ["health-check", "send-welcome-email"],
+  });
+
+describe("parsePyStringSet", () => {
+  it("returns [] for an empty set()", () => {
+    expect(parsePyStringSet("ALLOWED_TASKS: set[str] = set()", "ALLOWED_TASKS")).toEqual([]);
+  });
+  it("returns the quoted ids for a populated set", () => {
+    expect(
+      parsePyStringSet('ALLOWED_TASKS: set[str] = {"a", "b"}', "ALLOWED_TASKS"),
+    ).toEqual(["a", "b"]);
+  });
+  it("returns null when the declaration is missing", () => {
+    expect(parsePyStringSet("OTHER: set[str] = set()", "ALLOWED_TASKS")).toBeNull();
+  });
+});
+
+describe("parseProjectIdentity — configured automation", () => {
+  const identity = configuredIdentity();
+
+  it("reports the Trigger.dev project ref", () => {
+    expect(identity.projectRef).toBe("proj_abc123def456");
+    expect(identity.projectRefRaw).toBe("proj_abc123def456");
+    expect(identity.projectRefFieldPresent).toBe(true);
+    expect(identity.triggerConfigPresent).toBe(true);
+  });
+  it("reports the automation name from package.json", () => {
+    expect(identity.automationName).toBe("my-automation");
+    expect(identity.automationNameIsSentinel).toBe(false);
+  });
+  it("reports the Modal app name", () => {
+    expect(identity.modalAppName).toBe("my-automation-bridge");
+    expect(identity.modalAppNameIsSentinel).toBe(false);
+    expect(identity.modalBridgePresent).toBe(true);
+  });
+  it("parses ALLOWED_TASKS and TASK_REQUIRES_RECORD_ID", () => {
+    expect(identity.tasks).toEqual(["health-check", "send-welcome-email"]);
+    expect(identity.rowScopedTasks).toEqual(["send-welcome-email"]);
+  });
+  it("reports the Airtable BASE_ID", () => {
+    expect(identity.baseId).toBe("appXXXXXXX");
+    expect(identity.baseIdIsSentinel).toBe(false);
+  });
+  it("reports the prod secret as a prefix only — never the value", () => {
+    expect(identity.envProdPresent).toBe(true);
+    expect(identity.envProdHasTriggerSecret).toBe(true);
+    expect(identity.envProdTriggerSecretPrefix).toBe("tr_prod_");
+    expect(JSON.stringify(identity)).not.toContain("supersecretvalue123");
+  });
+  it("flags scaffolded tasks missing from ALLOWED_TASKS", () => {
+    const identity = parseProjectIdentity({
+      modalBridge: bridgeBase.replace(
+        "ALLOWED_TASKS: set[str] = set()",
+        'ALLOWED_TASKS: set[str] = {"health-check"}',
+      ),
+      triggerTaskIds: ["health-check", "ghost-task"],
+    });
+    expect(identity.tasksMissingFromBridge).toEqual(["ghost-task"]);
+  });
+  it("is complete with no blockers", () => {
+    expect(identity.identityComplete).toBe(true);
+    expect(identityBlockers(identity)).toEqual([]);
+  });
+});
+
+describe("parseProjectIdentity — fresh scaffold (sentinels)", () => {
+  const identity = parseProjectIdentity({
+    dirName: "fresh-automation",
+    triggerConfig: triggerConfigBase,
+    packageJson: pkgBase,
+    modalBridge: bridgeBase,
+    schemaTs: schemaBase,
+  });
+
+  it("rejects the empty project sentinel but remembers the raw value", () => {
+    expect(identity.projectRef).toBeNull();
+    expect(identity.projectRefRaw).toBe("");
+    expect(identity.projectRefFieldPresent).toBe(true);
+  });
+  it("flags the name, app, and BASE_ID sentinels", () => {
+    expect(identity.automationNameIsSentinel).toBe(true);
+    expect(identity.modalAppNameIsSentinel).toBe(true);
+    expect(identity.baseIdIsSentinel).toBe(true);
+  });
+  it("has exactly the three identity blockers", () => {
+    expect(identityBlockers(identity)).toHaveLength(3);
+    expect(identity.identityComplete).toBe(false);
+  });
+  it("reports the prod env as absent without throwing", () => {
+    expect(identity.envProdPresent).toBe(false);
+    expect(identity.envProdHasTriggerSecret).toBe(false);
+    expect(identity.envProdTriggerSecretPrefix).toBeNull();
+  });
+});
+
+describe("parseProjectIdentity — missing or malformed files", () => {
+  it("degrades to null fields for all-null inputs", () => {
+    const identity = parseProjectIdentity({});
+    expect(identity.triggerConfigPresent).toBe(false);
+    expect(identity.packageJsonPresent).toBe(false);
+    expect(identity.modalBridgePresent).toBe(false);
+    expect(identity.projectRef).toBeNull();
+    expect(identity.automationName).toBeNull();
+    expect(identity.tasks).toEqual([]);
+    expect(identity.tasksMissingFromBridge).toEqual([]);
+  });
+  it("falls back to a name regex when package.json is malformed", () => {
+    const identity = parseProjectIdentity({
+      packageJson: 'oops, not json "name": "fallback-name" trailing',
+    });
+    expect(identity.automationName).toBe("fallback-name");
+  });
+  it("reports a missing project field", () => {
+    const identity = parseProjectIdentity({
+      triggerConfig: triggerConfigBase.replace('  project: "",\n', ""),
+    });
+    expect(identity.projectRefFieldPresent).toBe(false);
+    expect(identity.projectRefRaw).toBeNull();
+    expect(identity.projectRef).toBeNull();
+  });
+  it("rejects a proj_-shaped but invalid ref", () => {
+    const identity = parseProjectIdentity({
+      triggerConfig: triggerConfigBase.replace('project: ""', 'project: "proj_UPPER"'),
+    });
+    expect(identity.projectRef).toBeNull();
+    expect(identity.projectRefRaw).toBe("proj_UPPER");
+  });
+});
+
+describe("formatIdentityReport", () => {
+  it("states the project ref, app name, and tasks for a configured automation", () => {
+    const report = formatIdentityReport(configuredIdentity(), { dir: "C:/automations/my-automation" });
+    expect(report).toContain("Automation identity — my-automation");
+    expect(report).toContain("directory: C:/automations/my-automation");
+    expect(report).toContain("Trigger.dev project: proj_abc123def456");
+    expect(report).toContain("Modal app: my-automation-bridge");
+    expect(report).toContain("ALLOWED_TASKS: health-check, send-welcome-email");
+    expect(report).toContain("row-scoped tasks: send-welcome-email");
+    expect(report).toContain("src/trigger tasks: health-check, send-welcome-email — all registered");
+    expect(report).toContain("ready: yes — identity complete");
+  });
+  it("never includes a secret value; shows the prefix only", () => {
+    const report = formatIdentityReport(configuredIdentity());
+    expect(report).toContain("(tr_prod_…)");
+    expect(report).not.toContain("supersecretvalue123");
+  });
+  it("lists one bullet per blocker on a fresh scaffold", () => {
+    const report = formatIdentityReport(
+      parseProjectIdentity({
+        dirName: "fresh-automation",
+        triggerConfig: triggerConfigBase,
+        packageJson: pkgBase,
+        modalBridge: bridgeBase,
+        schemaTs: schemaBase,
+      }),
+    );
+    expect(report).toContain("ready: no — 3 blocker(s):");
+    expect(report).toContain("Part A Phase 2");
+    expect(report).toContain("Part B");
+    expect(report).toContain("(info) .env.production has no TRIGGER_SECRET_KEY → /skill:env-storage (Load)");
+  });
+  it("degrades to a single line for a not-an-automation directory", () => {
+    const report = formatIdentityReport(parseProjectIdentity({ dirName: "random-dir" }));
+    expect(report).toBe(
+      "No relay-code automation found in this directory — trigger.config.ts, package.json, and modal_bridge.py are all missing.",
+    );
+  });
+});
+
+describe("formatIdentityEcho", () => {
+  it("is a single line carrying project + name + app", () => {
+    const echo = formatIdentityEcho(configuredIdentity());
+    expect(echo).not.toContain("\n");
+    expect(echo).toMatch(/^\[identity\] project proj_abc123def456 · my-automation · modal app my-automation-bridge$/);
+  });
+  it("warns when the project id is unset and names the sentinels", () => {
+    const echo = formatIdentityEcho(
+      parseProjectIdentity({ dirName: "fresh", triggerConfig: triggerConfigBase, packageJson: pkgBase, modalBridge: bridgeBase }),
+    );
+    expect(echo).toContain("⚠ Trigger.dev project id NOT SET");
+    expect(echo).toContain("name (sentinel)");
+    expect(echo).toContain("modal app (sentinel)");
+  });
+  it("never includes a secret value", () => {
+    const echo = formatIdentityEcho(configuredIdentity());
+    expect(echo).not.toContain("supersecretvalue123");
+  });
+});
+
+describe("formatFleetTable", () => {
+  const row = (dir: string, isCurrent: boolean, overrides?: { noBridge?: boolean; sentinel?: boolean }) => ({
+    dir,
+    isCurrent,
+    identity: parseProjectIdentity(
+      overrides?.sentinel
+        ? {
+            dirName: dir,
+            triggerConfig: triggerConfigBase,
+            packageJson: pkgBase,
+            modalBridge: overrides?.noBridge ? null : bridgeBase,
+          }
+        : {
+            dirName: dir,
+            triggerConfig: triggerConfigBase.replace('project: ""', 'project: "proj_111222333"'),
+            packageJson: pkgBase.replace("REPLACE-ME-via-system-setup", dir),
+            modalBridge: overrides?.noBridge
+              ? null
+              : bridgeBase.replace('App("REPLACE-ME-bridge"', `App("${dir}-bridge"`),
+          },
+    ),
+  });
+
+  it("renders one row per automation under a header naming the scan root", () => {
+    const table = formatFleetTable({
+      scanRoot: "C:/automations",
+      rows: [row("alpha", false), row("beta", true)],
+    });
+    expect(table).toContain("Fleet scan — 2 automation(s) under C:/automations");
+    expect(table).toContain("proj_111222333");
+    expect(table).toContain("alpha-bridge");
+    expect(table).toContain("beta-bridge");
+  });
+  it("marks the current directory and sorts rows by name", () => {
+    const table = formatFleetTable({
+      scanRoot: "r",
+      rows: [row("zeta", true), row("alpha", false)],
+    });
+    expect(table.indexOf("alpha")).toBeGreaterThan(-1);
+    expect(table.indexOf("zeta (current)")).toBeGreaterThan(-1);
+    expect(table.indexOf("alpha")).toBeLessThan(table.indexOf("zeta (current)"));
+  });
+  it("truncates over-long cells and shows placeholders", () => {
+    const table = formatFleetTable({
+      scanRoot: "r",
+      rows: [
+        row("a-very-long-directory-name-exceeding-the-cap", false, { sentinel: true }),
+        row("unscaffolded", false, { noBridge: true }),
+      ],
+    });
+    expect(table).toContain("…");
+    expect(table).toContain("(not set)");
+    expect(table).toContain("(sentinel)");
+    expect(table).toContain("(no modal_bridge.py)");
+  });
+});
+
+describe("identity constants", () => {
+  it("sentinels equal the relay-system-setup template strings", () => {
+    expect(load("automation-package.json")).toContain(SENTINEL_AUTOMATION_NAME);
+    expect(bridgeBase).toContain(SENTINEL_MODAL_APP);
+    expect(schemaBase).toContain(`BASE_ID = "${SENTINEL_BASE_ID}"`);
+    expect(triggerConfigBase).toContain('project: ""');
+  });
+  it("PROJECT_REF_RE is exactly ^proj_[a-z0-9]+$", () => {
+    expect(PROJECT_REF_RE.source).toBe("^proj_[a-z0-9]+$");
+    expect(PROJECT_REF_RE.test("proj_abc123")).toBe(true);
+    expect(PROJECT_REF_RE.test("proj_UPPER")).toBe(false);
+    expect(PROJECT_REF_RE.test("nope_abc")).toBe(false);
   });
 });

@@ -68,7 +68,7 @@ The local dev-worker bring-up and the production deploy runbook both live inside
 
 - Tasks live as flat files under `src/trigger/*.ts`, not in per-task directories.
 - There is no `src/trigger/_templates/` folder; `relay_add_task` scaffolds new task files in the canonical `task({ id, run })` shape from `@trigger.dev/sdk`.
-- `trigger.config.ts` loads `TRIGGER_PROJECT_ID` and scans `./src/trigger`.
+- `trigger.config.ts` loads `TRIGGER_PROJECT_ID` and scans `./src/trigger`. Call `relay_automation_info` to report which project ID the current directory is configured with.
 - Commands — **prefer the `relay_*` tools over the bare npm scripts**; the tools add pre-flight, gating, and secret-prefix checks the bare scripts lack:
   - `relay_dev_worker` (action `up` / `status` / `down`) — wraps `npm run trigger:dev`; uses `.env`.
   - `relay_deploy_trigger` — wraps `npm run trigger:deploy`; uses `.env.production`.
