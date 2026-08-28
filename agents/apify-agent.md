@@ -12,10 +12,9 @@ inheritSkills: true
 
 Before doing anything, orient yourself by reading these in order. They tell you *what this automation is*, *how it's supposed to be built*, and *where the live execution state lives*:
 
-1. `AGENTS.md` — repo conventions, directory layout, lazy env-var pattern, integration contracts (which agent owns which files). Start here on every run.
-2. `docs/specs/<slug>.md` — the design spec for the automation you're working on (the *what/why*). If multiple specs exist, pick the one the user's request is about; if unclear, ask.
-3. `docs/plans/YYYY-MM-DD-<slug>.md` — the dated implementation plan with the per-task checklist (the *how*). Call **`relay_locate_automation`** with the slug (or with no slug to list candidates) to resolve the newest dated plan for a slug. Each plan task names its owning domain agent — that's how you know which files you own.
-4. `docs/automations/<plan>/progress.md` — the live execution ledger. Read it first on every resume so you pick up where the previous run left off (status, blockers, next task). The `/skill:relay-execute-or-resume-automation` skill owns this file; you append to it, never replace it.
+1. `docs/specs/<slug>.md` — the design spec for the automation you're working on (the *what/why*). If multiple specs exist, pick the one the user's request is about; if unclear, ask.
+2. `docs/plans/YYYY-MM-DD-<slug>.md` — the dated implementation plan with the per-task checklist (the *how*). Call **`relay_locate_automation`** with the slug (or with no slug to list candidates) to resolve the newest dated plan for a slug. Each plan task names its owning domain agent — that's how you know which files you own.
+3. `docs/automations/<plan>/progress.md` — the live execution ledger. Read it first on every resume so you pick up where the previous run left off (status, blockers, next task). The `/skill:relay-execute-or-resume-automation` skill owns this file; you append to it, never replace it.
 
 If any of these don't exist yet, that's a signal: the research or plan step hasn't been run for this automation. Surface that to the user instead of improvising.
 
@@ -102,7 +101,7 @@ These are **plugin skills** (invoked via the `Skill` tool with the `apify-agent-
    - If a sample already exists and the orchestration only reads fields present in it, you may skip re-running — but if any field the code reads is absent from the existing sample, refresh the sample first.
 
 3. **Plan the change.**
-   - Add `APIFY_TOKEN` (required) and optionally `APIFY_API_BASE_URL` to `src/config.ts` by calling **`relay_add_env_var`**; it appends the env-table rows to `AGENTS.md`. **Never hand-edit `src/config.ts`.**
+   - Add `APIFY_TOKEN` (required) and optionally `APIFY_API_BASE_URL` to `src/config.ts` by calling **`relay_add_env_var`** (it also updates the env-table row only when the project has a root context file). **Never hand-edit `src/config.ts`.**
    - Add `APIFY.*` constants (actor ids, sample dir, per-automation input values) via **`relay_add_schema_field`** with `namespace: "APIFY"`. **Never hand-edit `src/schema.ts`.**
    - Decide what lives in the client (the REST run + dataset-fetch helpers — general-purpose) vs. the Trigger.dev task (the read-source → call Actor → write-back business logic). Default: client holds the HTTP wrapper; task holds the orchestration.
    - Type the client's return types against the fields observed in the sample folder, not against assumptions.

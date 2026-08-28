@@ -14,7 +14,7 @@ This skill delegates to two existing skills for the heavy lifting:
 - `/skill:relay-plan-automation <slug>` writes the follow-up plan under `docs/plans/YYYY-MM-DD-<slug>-update-<descriptor>.md` (a follow-up uses the `-update-<descriptor>` suffix, not a bare `YYYY-MM-DD-<slug>.md`, and never overwrites the original plan).
 - `/skill:relay-execute-or-resume-automation <slug>` dispatches the agent roster via `pi-subagents`, runs the fix loop, writes the ledger under `docs/automations/<plan-basename>/progress.md`, and ships the commits (then deploys via `relay_deploy_trigger` → `relay_smoke_test` → `relay_deploy_modal`).
 
-What this skill adds on top of those two is: **parent-spec framing** (verbatim follow-up `## Spec` block), the **required "Spec — fold this change in" terminal task**, **post-execute spec verification** (three checks: landed / removed / consistent), and the **one-line `AGENTS.md` Notes bullet** for the parent automation.
+What this skill adds on top of those two is: **parent-spec framing** (verbatim follow-up `## Spec` block), the **required "Spec — fold this change in" terminal task**, **post-execute spec verification** (three checks: landed / removed / consistent), and the **one-line follow-up bullet in the parent automation's progress ledger**.
 
 ## Input
 
@@ -146,7 +146,7 @@ apify-agent for lib-client, trigger-dev-agent for orchestration/trigger>
 Pass it the new plan path. Add these instructions explicitly:
 
 - **Branch override.** The execute skill's default branch is `feat/<slug>`. For this follow-up, use `feat/<slug>-<descriptor>` instead — the original `feat/<slug>` may already be active from a prior follow-up, and follow-ups need their own branch so multiple follow-ups can run in parallel. The override applies only to follow-ups.
-- **Spec verification is mandatory at Finish.** The execute skill's Finish step normally covers deploy + an AGENTS.md subsection. This follow-up adds a **post-execute spec verification gate** (step 8 below) that must also pass before the execute skill reports completion. Surface it as a concern if the execute skill skips it.
+- **Spec verification is mandatory at Finish.** The execute skill's Finish step normally covers deploy + a progress-ledger summary subsection. This follow-up adds a **post-execute spec verification gate** (step 8 below) that must also pass before the execute skill reports completion. Surface it as a concern if the execute skill skips it.
 - **Deploy via the tools.** When the execute skill reaches its deploy runbook, it uses `relay_deploy_trigger` → `relay_smoke_test` → `relay_deploy_modal` as usual.
 
 The execute skill owns its own mechanics (branch guard, `relay_dev_worker` bring-up, per-task brief/report files in `docs/automations/<plan-basename>/`, fix loop max 5 rounds, ledger, plan checkbox ticking, deploy-order tools). This skill does not reimplement any of that. If a task lands `DONE_WITH_CONCERNS`, the execute skill handles it; only escalate back to the user if the concern is "the parent spec didn't get folded in" (handled in step 8).
@@ -167,13 +167,9 @@ If **any** check fails, refuse to mark the update complete. Dispatch a one-off f
 
 The dispatched agent runs a quick edit + the three checks again. Re-verify. **Do not declare success until the spec is consistent.**
 
-### 9. Append the `AGENTS.md` Notes bullet.
+### 9. Append the follow-up bullet to the progress ledger.
 
-Find the parent automation's section in `AGENTS.md`. Search order:
-
-1. `### Automations` (the heading the execute skill's Finish step points at — if present, append under it).
-2. If absent, append to a dedicated `# Follow-ups` section under the parent automation's slug.
-3. If neither exists, create `# Follow-ups` once.
+Find the parent automation's ledger (`docs/automations/<plan>/progress.md`) via **`relay_locate_automation`** and append the line at the end:
 
 Format the line:
 
@@ -181,7 +177,7 @@ Format the line:
 - Follow-up plan docs/plans/<YYYY-MM-DD>-<slug>-update-<descriptor>.md <one-line summary>; landed in commits <base7>..<head7>.
 ```
 
-If `### Automations` is still inside an unfilled HTML comment block, edit the comment text in place so the user's next pass knows the block is being populated. If the heading is live prose with no per-automation subsection, append a `# Follow-ups` section right below it.
+The ledger is append-only — you append to it, never replace it. If the parent automation has no ledger yet, that's a signal the execute step hasn't run for it; surface that to the user instead of improvising.
 
 ## What never to do
 
@@ -198,5 +194,5 @@ If `### Automations` is still inside an unfilled HTML comment block, edit the co
 - Always call `relay_locate_automation` before trusting anything about the automation's state; its output is the source of truth for spec / plan / ledger.
 - Always check for existing follow-up plans (step 2) before invoking the plan skill — silently overwriting a prior follow-up is one of the worst failure modes.
 - The post-execute spec verification (step 8) is not optional; do not skip it because the implementation "looks clean."
-- The `AGENTS.md` Notes bullet (step 9) is the only place this skill writes to `AGENTS.md`.
+- The progress-ledger bullet (step 9) is the only place this skill writes outside `docs/plans/`.
 - The follow-up plan's filename must use the `-update-<descriptor>` suffix. A bare `YYYY-MM-DD-<slug>.md` is the original plan and must not be overwritten.

@@ -12,10 +12,9 @@ inheritSkills: true
 
 Before doing anything, orient yourself by reading these in order. They tell you *what this automation is*, *how it's supposed to be built*, and *where the live execution state lives*:
 
-1. `AGENTS.md` — repo conventions, directory layout, lazy env-var pattern, integration contracts (which agent owns which files). Start here on every run.
-2. `docs/specs/<slug>.md` — the design spec for the automation you're working on (the *what/why*). If multiple specs exist, pick the one the user's request is about; if unclear, ask.
-3. `docs/plans/YYYY-MM-DD-<slug>.md` — the dated implementation plan with the per-task checklist (the *how*). Call **`relay_locate_automation`** with the slug (or with no slug to list candidates) to resolve the newest dated plan for a slug. Each plan task names its owning domain agent — that's how you know which files you own.
-4. `docs/automations/<plan>/progress.md` — the live execution ledger. Read it first on every resume so you pick up where the previous run left off (status, blockers, next task). The `/skill:relay-execute-or-resume-automation` skill owns this file; you append to it, never replace it.
+1. `docs/specs/<slug>.md` — the design spec for the automation you're working on (the *what/why*). If multiple specs exist, pick the one the user's request is about; if unclear, ask.
+2. `docs/plans/YYYY-MM-DD-<slug>.md` — the dated implementation plan with the per-task checklist (the *how*). Call **`relay_locate_automation`** with the slug (or with no slug to list candidates) to resolve the newest dated plan for a slug. Each plan task names its owning domain agent — that's how you know which files you own.
+3. `docs/automations/<plan>/progress.md` — the live execution ledger. Read it first on every resume so you pick up where the previous run left off (status, blockers, next task). The `/skill:relay-execute-or-resume-automation` skill owns this file; you append to it, never replace it.
 
 If any of these don't exist yet, that's a signal: the research or plan step hasn't been run for this automation. Surface that to the user instead of improvising.
 
@@ -50,7 +49,7 @@ If the user does not provide the task id, list the current `ALLOWED_TASKS` in `m
    - List `src/trigger/*.ts` and read the relevant task file to confirm its exported `id` matches.
 
 2. **Decide what to change.**
-   - **Add a new allowed task:** call **`relay_add_task`** with the task `id` and `rowScoped` flag. It appends the id to `ALLOWED_TASKS` and (when `rowScoped`) to `TASK_REQUIRES_RECORD_ID`, keeping the `as const` / set shape intact. **Do not hand-edit those sets.** For row-scoped tasks, the matching Airtable Button field URL must use `RECORD_ID()` in the formula (e.g. `…&recordId=" & RECORD_ID()`) — **never** `<<recId>>`. Airtable does not substitute `<<…>>` tokens and the Modal bridge will receive an empty `recordId`. The button formula is pasted into the Airtable button's URL formula box (Button-field formula authoring rules are owned by the `airtable-agent`); the deployed Modal bridge URL lives in `AGENTS.md`'s "Project identity" block.
+   - **Add a new allowed task:** call **`relay_add_task`** with the task `id` and `rowScoped` flag. It appends the id to `ALLOWED_TASKS` and (when `rowScoped`) to `TASK_REQUIRES_RECORD_ID`, keeping the `as const` / set shape intact. **Do not hand-edit those sets.** For row-scoped tasks, the matching Airtable Button field URL must use `RECORD_ID()` in the formula (e.g. `…&recordId=" & RECORD_ID()`) — **never** `<<recId>>`. Airtable does not substitute `<<…>>` tokens and the Modal bridge will receive an empty `recordId`. The button formula is pasted into the Airtable button's URL formula box (Button-field formula authoring rules are owned by the `airtable-agent`); the deployed Modal bridge URL comes from the `relay_deploy_modal` result.
    - **Debug a task mismatch:** compare the task id, `recordId` requirement, and the Trigger.dev export; fix the bridge or the task file.
    - **Debug deployment:** check `App` name, `Secret.from_dotenv(__file__)` expectation (`.env.production` next to `modal_bridge.py`), and the `TRIGGER_SECRET_KEY` / `TRIGGER_BASE_URL` env handling.
    - **Serve locally:** run `modal serve modal_bridge.py` (background) and hit `/health` to verify. (No `relay_*` tool wraps `modal serve` — use it directly for local hot-reload testing.)

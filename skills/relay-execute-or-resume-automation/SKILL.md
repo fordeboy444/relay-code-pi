@@ -102,7 +102,7 @@ If the final review returns findings, dispatch **one** fix agent with the comple
 1. Update the plan frontmatter: `status: completed` (or `status: paused` if blocked) — both from the closed `PLAN_STATUS_VALUES` set (relay-code-pi package `src/cores.ts`), enforced by `relay_lint`.
 2. Ensure all task checkboxes are `- [x]`.
 3. Call **`relay_lint`** to confirm the finished plan + spec still conform; fix every error it reports and re-call until clean before deploying.
-4. Append a new subsection to `AGENTS.md`'s `### Automations` section using the template in the `<!-- … -->` block there (per-automation context): task id(s), trigger type, source → destination, required env vars, integration contracts, Modal bridge (`in ALLOWED_TASKS` + recordId yes/no), status, and notes. Do not invent fields the template doesn't define.
+4. Append the automation's summary subsection to the progress ledger (`docs/automations/<plan>/progress.md`): task id(s), trigger type, source → destination, required env vars, integration contracts, Modal bridge (`in ALLOWED_TASKS` + recordId yes/no), status, and notes. The ledger is append-only — you append to it, never replace it.
 5. **Deploy to production** by calling the deploy-order tools in sequence — **`relay_deploy_trigger` → `relay_smoke_test` → `relay_deploy_modal`**. `relay_smoke_test` is the blocking gate: it triggers one task and polls the run, and writes the deploy-gate marker only on `COMPLETED`. `relay_deploy_modal` **refuses** until that marker exists. Do not deploy the Modal bridge until a task has run green in prod.
 
    ### Production deploy runbook

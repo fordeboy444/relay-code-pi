@@ -37,7 +37,7 @@ Read the spec at `docs/specs/<slug>.md`. If no spec exists for the slug, stop an
    Lock decomposition here; each file should have one clear responsibility.
 
 4. **Confirm the sub-agent roster.**
-   - Default to the agents named in the spec's `## Sub-agents` section. Primary agents (`modal-agent`, `trigger-dev-agent`) are assumed unless the spec omits them; add-on agents appear only when the spec adds them. Every name on a task's `**Agents:**` line must be one of the six in `VALID_AGENT_NAMES` — the relay-code-pi package's `src/cores.ts` (`airtable-agent`, `apify-agent`, `gohighlevel-agent`, `modal-agent`, `trigger-dev-agent`, `unipile-agent`) — `relay_lint` rejects anything else, so do not put built-in agent types like `Explore` on an `**Agents:**` line.
+   - Default to the agents named in the spec's `## Sub-agents` section. Primary agents (`modal-agent`, `trigger-dev-agent`) are assumed unless the spec omits them; add-on agents appear only when the spec adds them. Every name on a task's `**Agents:**` line must be one of the seven in `VALID_AGENT_NAMES` — the relay-code-pi package's `src/cores.ts` (`airtable-agent`, `apify-agent`, `composio-agent`, `gohighlevel-agent`, `modal-agent`, `trigger-dev-agent`, `unipile-agent`) — `relay_lint` rejects anything else, so do not put built-in agent types like `Explore` on an `**Agents:**` line.
    - If any task touches software no listed agent covers, use AskUserQuestion to ask which sub-agent should be used or created. New agents are authored under `.claude/agents/<name>.md` with the `context7-cli` skill appended (see Sub-agent creation rule) before finalizing the plan.
 
 5. **Right-size the tasks.**

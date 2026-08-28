@@ -20,7 +20,6 @@ The user should describe the automation they have in mind. If they only typed `/
 0. **Read the progress signal.** Always treat the first line of `relay_locate_automation`'s output as the canonical progress signal; obey it before reading the rest of the tool output.
 
 1. **Explore project context** (before asking detailed questions)
-   - Read `AGENTS.md` (per-automation context, conventions, env vars).
    - List `src/trigger/*.ts` and read `trigger.config.ts` to learn existing tasks and slug conventions.
    - Read `modal_bridge.py` `ALLOWED_TASKS` to see which tasks are already wired.
    - Call **`relay_locate_automation`** with no slug to list existing specs/plans — this surfaces slug collisions and any in-progress work to reuse. If the user already gave a candidate slug, call `relay_locate_automation` with it to confirm no spec with that slug already exists.
@@ -106,7 +105,7 @@ The user should describe the automation they have in mind. If they only typed `/
    - Expected trigger URL / formula (owned by `airtable-agent`)
 
    ## Sub-agents
-   - Which agents implement this automation. Default to the primary agents; add add-on agents as needed. The roster names only the six domain agents — built-in types like `Explore` are research tools, not implementers, and `relay_lint` rejects them on a plan's `**Agents:**` line. Note any new agent created and its `skills:` list.
+   - Which agents implement this automation. Default to the primary agents; add add-on agents as needed. The roster names only the seven domain agents — built-in types like `Explore` are research tools, not implementers, and `relay_lint` rejects them on a plan's `**Agents:**` line. Note any new agent created and its `skills:` list.
 
    ## Tests
    - Unit tests for pure transforms (if any).

@@ -1,8 +1,10 @@
 // relay-code-pi — the Pi extension factory.
 //
 // One file, one default export, many pi.registerTool calls. The constitution
-// ships in the package's prompts/AGENTS.md (injected by Pi from the installed
-// package) — it is not injected by a handler here.
+// ships at <pkg>/prompts/AGENTS.md; nothing in Pi injects a package's prompts/
+// automatically, so the before_agent_start hook below appends it to the MAIN
+// agent's system prompt on every turn. Sub-agents (PI_SUBAGENT_CHILD=1) never
+// receive it — they stay plan/progress-driven.
 //
 // Convention-enforcing tools (relay_add_*) wrap their whole read-modify-write
 // in withFileMutationQueue via the shared mutateFile adapter below, and
@@ -18,6 +20,7 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import { readFile, writeFile, mkdir, open, rm, readdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { resolve, join, dirname, basename } from "node:path";
+import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import * as cores from "../src/cores";
 
@@ -78,6 +81,31 @@ export default function (pi: ExtensionAPI) {
       await writeFile(filePath, content, "utf8");
       return { ...(typeof r === "string" ? {} : r), content, changed: content !== before } as Mutated<C>;
     });
+
+  // -------------------------------------------------------------------------
+  // Constitution delivery — main agent only
+  // -------------------------------------------------------------------------
+  // before_agent_start fires on every prompt submission; returning
+  // { systemPrompt } replaces it for that turn (chained across extensions). The
+  // file is read once and cached; a missing prompts/AGENTS.md degrades to a
+  // no-op so a broken install never blocks startup. Sub-agents never register
+  // the hook: pi-subagents children run with PI_SUBAGENT_CHILD=1 and stay
+  // plan/progress-driven.
+  if (!cores.isSubagentChildEnv(process.env)) {
+    const constitutionPath = fileURLToPath(new URL("../prompts/AGENTS.md", import.meta.url));
+    let constitution: string | null = null;
+    pi.on("before_agent_start", async (event) => {
+      if (constitution === null) {
+        try {
+          constitution = await readFile(constitutionPath, "utf8");
+        } catch {
+          constitution = "";
+        }
+      }
+      if (!constitution) return undefined;
+      return { systemPrompt: cores.appendConstitution(event.systemPrompt ?? "", constitution) };
+    });
+  }
 
   // =========================================================================
   // Convention-enforcing tools (withFileMutationQueue + pure cores)

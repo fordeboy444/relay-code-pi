@@ -3,9 +3,10 @@
 You are driving the **relay-code** framework: Modal.com + Trigger.dev automations built
 through a three-phase lifecycle (research → plan → execute). This file is the project's
 standing constitution — the **tool-enforced rules** and conventions that hold across every
-automation. Pi loads it from `prompts/` into the system prompt on every turn, so it stays
-constant. Project-specific state is never stored here; it lives in the per-plan progress
-ledger (see Standing rules).
+automation. The package's extension appends it to the **main agent's** system prompt on
+every turn (sub-agents never receive it — they work from the spec, plan, and progress
+ledger), so it stays constant. Project-specific state is never stored here; it lives in
+the per-plan progress ledger (see Standing rules).
 
 ## Standing rules
 
@@ -95,7 +96,7 @@ Never reverse this order. The Modal bridge must read `.env.production` (prod), n
   `docs/plans/YYYY-MM-DD-<slug>.md` with `status` frontmatter
   (`planned` | `in_progress` | `paused` | `completed`) and an `**Agents:** <name>`
   line per task (`trigger-dev-agent`, `modal-agent`, `airtable-agent`,
-  `gohighlevel-agent`, `unipile-agent`, or `apify-agent`). Phase 3 execute
+  `gohighlevel-agent`, `unipile-agent`, `composio-agent`, or `apify-agent`). Phase 3 execute
   → `docs/automations/<plan>/progress.md`. Each phase writes its artifact and stops.
   Run `relay_lint` after producing a spec/plan and before handoff — it enforces the
   `status` values and `**Agents:**` names above deterministically (canonical sets:
@@ -126,12 +127,12 @@ the command are passed to the skill):
   Owns `docs/automations/<plan>/progress.md`.
 - `relay-update-or-fix-automation` — delta an existing spec/plan and re-run the fix
   loop (reuses the execute skill's mechanics).
-- `relay-sub-agent-builder` — author a new specialist sub-agent when the six below
+- `relay-sub-agent-builder` — author a new specialist sub-agent when the seven below
   don't cover an integration.
 
 ## Sub-agents (specialist dispatch)
 
-Six specialist sub-agents, dispatched task-by-task via `pi-subagents`. Every name on
+Seven specialist sub-agents, dispatched task-by-task via `pi-subagents`. Every name on
 a plan's `**Agents:**` line must be one of these — `relay_lint` rejects anything else.
 Canonical roster: the relay-code-pi package's `src/cores.ts` `VALID_AGENT_NAMES` —
 keep this list and the Lifecycle bullet in sync when the roster changes:
@@ -143,3 +144,4 @@ keep this list and the Lifecycle bullet in sync when the roster changes:
 - `apify-agent` — Apify scrapers / actors.
 - `gohighlevel-agent` — GoHighLevel CRM.
 - `unipile-agent` — Unipile integration.
+- `composio-agent` — Composio toolkits (1000+ SaaS actions via managed OAuth).

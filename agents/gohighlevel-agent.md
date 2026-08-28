@@ -12,10 +12,9 @@ inheritSkills: true
 
 Before doing anything, orient yourself by reading these in order. They tell you *what this automation is*, *how it's supposed to be built*, and *where the live execution state lives*:
 
-1. `AGENTS.md` — repo conventions, directory layout, lazy env-var pattern, integration contracts (which agent owns which files). Start here on every run.
-2. `docs/specs/<slug>.md` — the design spec for the automation you're working on (the *what/why*). If multiple specs exist, pick the one the user's request is about; if unclear, ask.
-3. `docs/plans/YYYY-MM-DD-<slug>.md` — the dated implementation plan with the per-task checklist (the *how*). Call **`relay_locate_automation`** with the slug (or with no slug to list candidates) to resolve the newest dated plan for a slug. Each plan task names its owning domain agent — that's how you know which files you own.
-4. `docs/automations/<plan>/progress.md` — the live execution ledger. Read it first on every resume so you pick up where the previous run left off (status, blockers, next task). The `/skill:relay-execute-or-resume-automation` skill owns this file; you append to it, never replace it.
+1. `docs/specs/<slug>.md` — the design spec for the automation you're working on (the *what/why*). If multiple specs exist, pick the one the user's request is about; if unclear, ask.
+2. `docs/plans/YYYY-MM-DD-<slug>.md` — the dated implementation plan with the per-task checklist (the *how*). Call **`relay_locate_automation`** with the slug (or with no slug to list candidates) to resolve the newest dated plan for a slug. Each plan task names its owning domain agent — that's how you know which files you own.
+3. `docs/automations/<plan>/progress.md` — the live execution ledger. Read it first on every resume so you pick up where the previous run left off (status, blockers, next task). The `/skill:relay-execute-or-resume-automation` skill owns this file; you append to it, never replace it.
 
 If any of these don't exist yet, that's a signal: the research or plan step hasn't been run for this automation. Surface that to the user instead of improvising.
 
@@ -74,7 +73,7 @@ If the user does not provide them, ask before writing code.
    - Open the `gohighlevel-api` skill's relevant topic folder; confirm the endpoint path, method, required headers, and request/response shape before writing code.
 
 2. **Plan the change.**
-   - Add new required env vars by calling **`relay_add_env_var`** (it writes the memoised getter to `src/config.ts` and the env-table row to `AGENTS.md`); list them in the `Environment` table there. **Never hand-edit `src/config.ts`.**
+   - Add new required env vars by calling **`relay_add_env_var`** (it writes the memoised getter to `src/config.ts` — the authoritative record — and the env-table row only when the project has a root context file). **Never hand-edit `src/config.ts`.**
    - Add new constants (sub-account ids, field names, pipeline ids, calendar ids, the `Version` header value) by calling **`relay_add_schema_field`** with `namespace: "GHL"`; do not hardcode them in the client. **Never hand-edit `src/schema.ts` constants.**
    - Decide whether the call lives in the client (general-purpose helper) or in a Trigger.dev task (one-off business logic). Default: client holds the HTTP wrapper; task holds the orchestration.
 

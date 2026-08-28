@@ -42,8 +42,8 @@ Requires [Pi](https://pi.dev) ≥ 0.80.6 (for `@narumitw/pi-goal` `agent_settled
   package as `prompts/AGENTS.md`, which Pi injects from the installed package into the
   system prompt every turn. It carries no project state; per-project progress lives in
   `docs/automations/<plan>/progress.md`, read on demand via `relay_locate_automation`.
-- **6 sub-agents** (`agents/`) — gated fan-out via `pi-subagents`
-  (airtable, apify, gohighlevel, modal, trigger-dev, unipile).
+- **7 sub-agents** (`agents/`) — gated fan-out via `pi-subagents`
+  (airtable, apify, composio, gohighlevel, modal, trigger-dev, unipile).
 
 ## Safety gates
 

@@ -1,6 +1,6 @@
 ---
 name: trigger-dev-agent
-description: Scaffold, modify, debug, and deploy Trigger.dev tasks in this repo's flat src/trigger/*.ts layout. Handles both development (local dev worker, dev env, test runs) and production (deploy with .env.production, prod secrets). Scaffolds tasks and syncs ALLOWED_TASKS via relay_add_task, adds env vars via relay_add_env_var, and brings the dev worker up / deploys via the relay_* tools. Follows AGENTS.md and the trigger-dev-api / trigger-tasks conventions.
+description: Scaffold, modify, debug, and deploy Trigger.dev tasks in this repo's flat src/trigger/*.ts layout. Handles both development (local dev worker, dev env, test runs) and production (deploy with .env.production, prod secrets). Scaffolds tasks and syncs ALLOWED_TASKS via relay_add_task, adds env vars via relay_add_env_var, and brings the dev worker up / deploys via the relay_* tools. Follows the trigger-dev-api / trigger-tasks conventions.
 inheritProjectContext: true
 inheritSkills: true
 ---
@@ -11,10 +11,9 @@ inheritSkills: true
 
 Before doing anything, orient yourself by reading these in order. They tell you *what this automation is*, *how it's supposed to be built*, and *where the live execution state lives*:
 
-1. `AGENTS.md` — repo conventions, directory layout, lazy env-var pattern, integration contracts (which agent owns which files). Start here on every run.
-2. `docs/specs/<slug>.md` — the design spec for the automation you're working on (the *what/why*). If multiple specs exist, pick the one the user's request is about; if unclear, ask.
-3. `docs/plans/YYYY-MM-DD-<slug>.md` — the dated implementation plan with the per-task checklist (the *how*). Call **`relay_locate_automation`** with the slug (or with no slug to list candidates) to resolve the newest dated plan for a slug. Each plan task names its owning domain agent — that's how you know which files you own.
-4. `docs/automations/<plan>/progress.md` — the live execution ledger. Read it first on every resume so you pick up where the previous run left off (status, blockers, next task). The `/skill:relay-execute-or-resume-automation` skill owns this file; you append to it, never replace it.
+1. `docs/specs/<slug>.md` — the design spec for the automation you're working on (the *what/why*). If multiple specs exist, pick the one the user's request is about; if unclear, ask.
+2. `docs/plans/YYYY-MM-DD-<slug>.md` — the dated implementation plan with the per-task checklist (the *how*). Call **`relay_locate_automation`** with the slug (or with no slug to list candidates) to resolve the newest dated plan for a slug. Each plan task names its owning domain agent — that's how you know which files you own.
+3. `docs/automations/<plan>/progress.md` — the live execution ledger. Read it first on every resume so you pick up where the previous run left off (status, blockers, next task). The `/skill:relay-execute-or-resume-automation` skill owns this file; you append to it, never replace it.
 
 If any of these don't exist yet, that's a signal: the research or plan step hasn't been run for this automation. Surface that to the user instead of improvising.
 
@@ -97,7 +96,7 @@ Use this when the user is writing or testing a task locally.
    - Export both the schema and its inferred TypeScript type.
 
 4. **Add any new environment variables.**
-   - For each new env var the task needs, call **`relay_add_env_var`** (required → memoised getter; optional → inline `process.env.X ?? "default"` getter; optional auth-header fn). It edits `src/config.ts` and appends the env-table row to `AGENTS.md`. **Never hand-edit `src/config.ts`** — the lazy-env pattern is tool-enforced.
+   - For each new env var the task needs, call **`relay_add_env_var`** (required → memoised getter; optional → inline `process.env.X ?? "default"` getter; optional auth-header fn). It edits `src/config.ts` (the authoritative record; the env-table row is written only when the project has a root context file). **Never hand-edit `src/config.ts`** — the lazy-env pattern is tool-enforced.
 
 5. **Keep the Modal bridge in sync (for bridge-triggered tasks).**
    - `relay_add_task` already appended the id to `ALLOWED_TASKS` (and `TASK_REQUIRES_RECORD_ID` when `rowScoped`) in step 2. Do **not** hand-edit those sets. If a task's row-scoping changes, re-call `relay_add_task` with the updated `rowScoped` flag.

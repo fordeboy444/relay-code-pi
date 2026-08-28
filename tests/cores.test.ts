@@ -36,6 +36,8 @@ import {
   DEV_WORKER_READY_DEADLINE_MS,
   parsePidMarker,
   devWorkerPollVerdict,
+  isSubagentChildEnv,
+  appendConstitution,
 } from "../src/cores";
 
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
@@ -710,5 +712,33 @@ describe("dev-worker constants", () => {
   it("polls every 2s with a 90s deadline", () => {
     expect(DEV_WORKER_POLL_INTERVAL_MS).toBe(2000);
     expect(DEV_WORKER_READY_DEADLINE_MS).toBe(90000);
+  });
+});
+
+describe("isSubagentChildEnv", () => {
+  it("detects a pi-subagents child (PI_SUBAGENT_CHILD=1)", () => {
+    expect(isSubagentChildEnv({ PI_SUBAGENT_CHILD: "1" })).toBe(true);
+  });
+  it("is false for the main agent (marker absent or not exactly '1')", () => {
+    expect(isSubagentChildEnv({})).toBe(false);
+    expect(isSubagentChildEnv({ PI_SUBAGENT_CHILD: "" })).toBe(false);
+    expect(isSubagentChildEnv({ PI_SUBAGENT_CHILD: "0" })).toBe(false);
+  });
+});
+
+describe("appendConstitution", () => {
+  const constitution = "# relay-code — operating constitution\n\n- rule one\n";
+  it("appends the constitution as its own final section", () => {
+    expect(appendConstitution("base prompt", constitution)).toBe("base prompt\n\n" + constitution);
+  });
+  it("uses a single blank line when the prompt already ends with a newline", () => {
+    expect(appendConstitution("base prompt\n", constitution)).toBe("base prompt\n\n" + constitution);
+  });
+  it("is idempotent — a second append is a no-op", () => {
+    const once = appendConstitution("base", constitution);
+    expect(appendConstitution(once, constitution)).toBe(once);
+  });
+  it("returns the prompt unchanged for an empty constitution", () => {
+    expect(appendConstitution("base", "")).toBe("base");
   });
 });

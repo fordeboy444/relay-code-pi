@@ -540,6 +540,7 @@ export const PLAN_STATUS_VALUES = ["planned", "in_progress", "paused", "complete
 export const VALID_AGENT_NAMES = [
   "airtable-agent",
   "apify-agent",
+  "composio-agent",
   "gohighlevel-agent",
   "modal-agent",
   "trigger-dev-agent",
@@ -629,4 +630,29 @@ export function lintPlan(p: { file: string; content: string }): LintFinding[] {
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// ---------------------------------------------------------------------------
+// constitution delivery (main agent only)
+// ---------------------------------------------------------------------------
+
+/**
+ * True when this pi process is a pi-subagents child (the runner sets
+ * PI_SUBAGENT_CHILD=1 in the child env). Sub-agents stay plan/progress-driven —
+ * they never receive the constitution; only the main agent does.
+ */
+export function isSubagentChildEnv(env: NodeJS.ProcessEnv): boolean {
+  return env.PI_SUBAGENT_CHILD === "1";
+}
+
+/**
+ * Append the constitution to a system prompt as its own final section.
+ * Idempotent: a prompt already carrying the same constitution text is returned
+ * unchanged, so chained before_agent_start handlers (or a retried run) can't
+ * stack duplicates.
+ */
+export function appendConstitution(systemPrompt: string, constitution: string): string {
+  if (!constitution) return systemPrompt;
+  if (systemPrompt.includes(constitution)) return systemPrompt;
+  return systemPrompt + (systemPrompt.endsWith("\n") ? "\n" : "\n\n") + constitution;
 }

@@ -43,8 +43,8 @@ agent for…", "set up a subagent to…"), don't write the file from memory — 
 across Claude Code versions. Run the interview below, grounded in `references/sub-agents.md`
 (recheck its "Supported frontmatter fields" section before authoring), then draft and write
 the file. Every new subagent body is prefixed with a shared "Context — where to look"
-preamble that points to `AGENTS.md`, the spec under `docs/specs/`, the newest dated plan
-under `docs/plans/`, and the live ledger at `docs/automations/<plan>/progress.md` — so
+preamble that points to the spec under `docs/specs/`, the newest dated plan under
+`docs/plans/`, and the live ledger at `docs/automations/<plan>/progress.md` — so
 spawned subagents can orient themselves without re-asking. The preamble is mandatory in
 this repo; strip paths only if the user is in a non-framework project without those
 directories.
@@ -188,16 +188,14 @@ stripping them):
 Before doing anything, orient yourself by reading these in order. They tell you *what this
 automation is*, *how it's supposed to be built*, and *where the live execution state lives*:
 
-1. `AGENTS.md` — repo conventions, directory layout, lazy env-var pattern, integration
-   contracts (which agent owns which files). Start here on every run.
-2. `docs/specs/<slug>.md` — the design spec for the automation you're working on (the
+1. `docs/specs/<slug>.md` — the design spec for the automation you're working on (the
    *what/why*). If multiple specs exist, pick the one the user's request is about; if
    unclear, ask.
-3. `docs/plans/YYYY-MM-DD-<slug>.md` — the dated implementation plan with the per-task
+2. `docs/plans/YYYY-MM-DD-<slug>.md` — the dated implementation plan with the per-task
    checklist (the *how*). Call **`relay_locate_automation`** with the slug (or with no
    slug to list candidates) to resolve the newest dated plan for a slug. Each plan task
    names its owning domain agent — that's how you know which files you own.
-4. `docs/automations/<plan>/progress.md` — the live execution ledger. Read it first on
+3. `docs/automations/<plan>/progress.md` — the live execution ledger. Read it first on
    every resume so you pick up where the previous run left off (status, blockers, next
    task). The execute skill owns this file; you append to it, never replace it.
 

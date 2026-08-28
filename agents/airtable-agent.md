@@ -12,10 +12,9 @@ inheritSkills: true
 
 Before doing anything, orient yourself by reading these in order. They tell you *what this automation is*, *how it's supposed to be built*, and *where the live execution state lives*:
 
-1. `AGENTS.md` — repo conventions, directory layout, lazy env-var pattern, integration contracts (which agent owns which files). Start here on every run.
-2. `docs/specs/<slug>.md` — the design spec for the automation you're working on (the *what/why*). If multiple specs exist, pick the one the user's request is about; if unclear, ask.
-3. `docs/plans/YYYY-MM-DD-<slug>.md` — the dated implementation plan with the per-task checklist (the *how*). Call **`relay_locate_automation`** with the slug (or with no slug to list candidates) to resolve the newest dated plan for a slug. Each plan task names its owning domain agent — that's how you know which files you own.
-4. `docs/automations/<plan>/progress.md` — the live execution ledger. Read it first on every resume so you pick up where the previous run left off (status, blockers, next task). The `/skill:relay-execute-or-resume-automation` skill owns this file; you append to it, never replace it.
+1. `docs/specs/<slug>.md` — the design spec for the automation you're working on (the *what/why*). If multiple specs exist, pick the one the user's request is about; if unclear, ask.
+2. `docs/plans/YYYY-MM-DD-<slug>.md` — the dated implementation plan with the per-task checklist (the *how*). Call **`relay_locate_automation`** with the slug (or with no slug to list candidates) to resolve the newest dated plan for a slug. Each plan task names its owning domain agent — that's how you know which files you own.
+3. `docs/automations/<plan>/progress.md` — the live execution ledger. Read it first on every resume so you pick up where the previous run left off (status, blockers, next task). The `/skill:relay-execute-or-resume-automation` skill owns this file; you append to it, never replace it.
 
 If any of these don't exist yet, that's a signal: the research or plan step hasn't been run for this automation. Surface that to the user instead of improvising.
 
@@ -66,7 +65,7 @@ Airtable's "Open URL" Button action uses an **Airtable formula**, not `<<recId>>
 | Row-scoped | `<table>` | `"https://<your-modal-bridge>/run?task=<slug>&recordId=" & RECORD_ID()` |
 | Task-only | (base-level) | `"https://<your-modal-bridge>/run?task=<slug>"` |
 
-Replace `<your-modal-bridge>` with the deployed Modal bridge URL for this repo — find it in `AGENTS.md`'s "Project identity" block (the `Modal bridge URL` slot, filled after the first `relay_deploy_modal`). Before that first deploy, construct the expected prefix from the Modal username + app name in that same block: `https://<username>--<app-name>-bridge-<func>.modal.run`. Replace `<slug>` with the Trigger.dev task slug registered in `modal_bridge.py`'s `ALLOWED_TASKS` (the `modal-agent` puts it there via `relay_add_task`). Task-only buttons (no recordId) are plain URL strings. Row-scoped buttons **must** end with `&recordId=" & RECORD_ID()` — the receiving task appears in `modal_bridge.py`'s `TASK_REQUIRES_RECORD_ID` set.
+Replace `<your-modal-bridge>` with the deployed Modal bridge URL for this repo — take it from the `relay_deploy_modal` result. Before that first deploy, construct the expected prefix from the Modal username (your Modal account) and the `app = …` name in `modal_bridge.py`: `https://<username>--<app-name>-bridge-<func>.modal.run`. Replace `<slug>` with the Trigger.dev task slug registered in `modal_bridge.py`'s `ALLOWED_TASKS` (the `modal-agent` puts it there via `relay_add_task`). Task-only buttons (no recordId) are plain URL strings. Row-scoped buttons **must** end with `&recordId=" & RECORD_ID()` — the receiving task appears in `modal_bridge.py`'s `TASK_REQUIRES_RECORD_ID` set.
 
 ### Common gotchas
 
@@ -78,7 +77,7 @@ Replace `<your-modal-bridge>` with the deployed Modal bridge URL for this repo �
 ### When the bridge URL changes
 
 - **New Airtable button** pointing at the Modal bridge → the `modal-agent` adds the task id to `ALLOWED_TASKS` (via `relay_add_task`, which also sets `TASK_REQUIRES_RECORD_ID` if row-scoped); you paste the formula into the Airtable button's URL formula box. The formula itself is the record — it lives in the Airtable button field, not in a repo file.
-- **Modal app re-deployed** (URL changes) → update the `Modal bridge URL` slot in `AGENTS.md`'s "Project identity" block, then update any Airtable button formulas that embed the old host.
+- **Modal app re-deployed** (URL changes) → take the new URL from the `relay_deploy_modal` result, then update any Airtable button formulas that embed the old host.
 - **`RECORD_ID()` starts returning something different** → check the Airtable formula docs; the formula lives in the button field.
 
 ### Verifying a button formula
@@ -91,7 +90,7 @@ Replace `<your-modal-bridge>` with the deployed Modal bridge URL for this repo �
 
 ### Related
 
-- `AGENTS.md` "Project identity" block — home of the deployed `Modal bridge URL` (filled after the first `relay_deploy_modal`).
+- The **`relay_deploy_modal` result** — reports the deployed `Modal bridge URL` after each deploy.
 - `modal_bridge.py` — the receiving side. `ALLOWED_TASKS`, `TASK_REQUIRES_RECORD_ID`, and the `recordId` validation.
 - `src/trigger/*.ts` — the Trigger.dev task implementations. They use `RECORD_ID()` server-side to look up the row.
 - the `modal-agent` — owns `modal_bridge.py`; coordinates with this agent when a button is added.
